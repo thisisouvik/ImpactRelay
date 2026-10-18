@@ -13,9 +13,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit --incremental false",
     "test": "vitest run",
+    "check": "npm run lint && npm run typecheck && npm test -- --run && npm run build",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
-    "test:testnet": "vitest run tests/testnet"
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.0.1",
