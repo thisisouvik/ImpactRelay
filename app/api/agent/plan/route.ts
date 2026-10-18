@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     if (!current) return notFoundResponse("Case");
 
     if (current.plan && current.status === "plan-ready") {
-      return NextResponse.json({ case: current, plan: current.plan });
+      return NextResponse.json({ case: current, plan: current.plan }, { headers: { "cache-control": "no-store" } });
     }
 
     if (current.status !== "received" && current.status !== "planning" && current.status !== "failed") {

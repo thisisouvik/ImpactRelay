@@ -9,7 +9,7 @@ export async function GET() {
     getProductionCaseRepository();
     const rateLimit = redisStatus();
     const cache = cacheStatus();
-    const degraded = process.env.RATE_LIMIT_MODE === "required" && rateLimit !== "configured";
+    const degraded = (process.env.RATE_LIMIT_MODE === "required" || process.env.NODE_ENV === "production") && rateLimit !== "configured";
     return NextResponse.json({
       status: degraded ? "degraded" : "ok",
       persistence: process.env.DATABASE_URL ? "neon" : "sqlite",

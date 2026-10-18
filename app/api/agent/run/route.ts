@@ -196,7 +196,7 @@ export async function POST(request: Request) {
         : "Evidence review and provider report are ready.",
       occurredAt: new Date().toISOString(),
     });
-    return NextResponse.json({ case: (await repository.getCase(caseId)) ?? ready, execution: "completed" });
+    return NextResponse.json({ case: (await repository.getCase(caseId)) ?? ready, execution: "completed" }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return errorResponse(error, "AGENT_RUN_FAILED");
   }

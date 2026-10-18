@@ -14,7 +14,7 @@ export async function GET(
     const ownerTokenHash = sessionHashFromRequest(_request);
     if (!ownerTokenHash) return notFoundResponse("Case");
     const found = await getProductionCaseRepository().getCase(caseId, ownerTokenHash);
-    return found ? NextResponse.json({ case: found }) : notFoundResponse("Case");
+    return found ? NextResponse.json({ case: found }, { headers: { "cache-control": "no-store" } }) : notFoundResponse("Case");
   } catch (error) {
     return errorResponse(error, "CASE_READ_FAILED");
   }
