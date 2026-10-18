@@ -2,7 +2,7 @@
 
 ImpactRelay is an evidence-first AI caseworker for community assistance. It turns a messy request into a bounded action plan, gathers evidence from free and paid services, and records the result—including small Stellar x402 testnet payments—in a reviewable case file.
 
-The repository now contains the first real case workflow. A user can submit a request, persist it in local SQLite, generate a transparent rules-based plan, inspect lifecycle events, and export the stored record. External tools, model providers, wallet signing, and blockchain payments are intentionally not represented as working until their real adapters are implemented.
+The repository now contains the real case workflow. A user can submit a request, persist it in local SQLite, generate a transparent rules-based plan or use a configured Grok/local provider, inspect lifecycle events, run free tools, review provenance, and export the stored record. Wallet signing and blockchain payments remain intentionally unavailable until their real adapters are implemented.
 
 ## Project direction
 
@@ -45,10 +45,15 @@ Planned integrations are intentionally provider-abstracted:
 - Grok through the server-side xAI API when a valid key or hackathon credit is available.
 - An open-source local model runtime for no-key development.
 - A transparent rules planner for the current local workflow.
+- A server-only Grok adapter and OpenAI-compatible local provider with structured output validation.
 - Stellar Testnet and x402 for bounded machine-to-machine payments.
 - SQLite for a portable local case and receipt store.
 
 The xAI API may not provide a universally free quota. The project must remain runnable without xAI credits; Grok is an optional real provider, not a single point of failure. When a real provider or tool is unavailable, the application must show a safe boundary instead of fabricating a result.
+
+## Today’s working demo
+
+The no-credential Rules path now supports real location resolution, nearby mapped resource discovery, current weather context, provenance metadata, and a transparent evidence brief. Follow [docs/demo-runbook.md](docs/demo-runbook.md) to rehearse and record the flow. The current 0G boundary and official documentation links are in [docs/0g-implementation.md](docs/0g-implementation.md).
 
 ## Existing checks
 
