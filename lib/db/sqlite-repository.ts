@@ -16,6 +16,8 @@ import {
   type CaseRequest,
   type CaseStatus,
   type EvidenceItem,
+  reportDraftSchema,
+  type ReportDraft,
 } from "@/lib/domain/schemas";
 import type { CaseRepository } from "@/lib/db/repository";
 
@@ -31,6 +33,8 @@ type CaseRow = {
   created_at: string;
   updated_at: string;
   plan_json: string | null;
+  report_json: string | null;
+  owner_token_hash: string | null;
 };
 
 type EventRow = {
@@ -50,9 +54,11 @@ type EvidenceRow = {
   source_name: string;
   source_url: string | null;
   retrieved_at: string;
+  freshness: string;
   summary: string;
   confidence: string;
   content_hash: string;
+  metadata_json: string | null;
 };
 
 const schemaSql = `
@@ -67,7 +73,9 @@ const schemaSql = `
     reserved_usd TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    plan_json TEXT
+    plan_json TEXT,
+    report_json TEXT,
+    owner_token_hash TEXT
   );
 
   CREATE TABLE IF NOT EXISTS case_events (
@@ -87,9 +95,11 @@ const schemaSql = `
     source_name TEXT NOT NULL,
     source_url TEXT,
     retrieved_at TEXT NOT NULL,
+    freshness TEXT NOT NULL,
     summary TEXT NOT NULL,
     confidence TEXT NOT NULL,
-    content_hash TEXT NOT NULL
+    content_hash TEXT NOT NULL,
+    metadata_json TEXT
   );
 
   CREATE INDEX IF NOT EXISTS case_events_case_id_idx ON case_events(case_id, occurred_at);
@@ -108,6 +118,11 @@ function parsePlan(value: string | null): AgentPlan | undefined {
   return agentPlanSchema.parse(JSON.parse(value));
 }
 
+function parseReport(value: string | null): ReportDraft | undefined {
+  if (!value) return undefined;
+  return reportDraftSchema.parse(JSON.parse(value));
+}
+
 export class SQLiteCaseRepository implements CaseRepository {
   private readonly database: DatabaseSync;
 
@@ -116,9 +131,20 @@ export class SQLiteCaseRepository implements CaseRepository {
     this.database = new DatabaseSync(path);
     this.database.exec("PRAGMA foreign_keys = ON;");
     this.database.exec(schemaSql);
+    this.ensureColumn("cases", "report_json", "TEXT");
+    this.ensureColumn("cases", "owner_token_hash", "TEXT");
+    this.ensureColumn("evidence_items", "freshness", "TEXT NOT NULL DEFAULT 'unknown'");
+    this.ensureColumn("evidence_items", "metadata_json", "TEXT");
   }
 
-  createCase(input: CaseRequest): CaseRecord {
+  private ensureColumn(table: string, column: string, definition: string) {
+    const columns = this.database.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+    if (!columns.some((item) => item.name === column)) {
+      this.database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
+  }
+
+  createCase(input: CaseRequest, ownerTokenHash?: string): CaseRecord {
     const request = caseRequestSchema.parse(input);
     const now = new Date().toISOString();
     const id = randomUUID();
@@ -129,8 +155,8 @@ export class SQLiteCaseRepository implements CaseRepository {
     });
 
     this.database.prepare(`
-      INSERT INTO cases (id, title, request_text, status, mode, cap_usd, spent_usd, reserved_usd, created_at, updated_at, plan_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+      INSERT INTO cases (id, title, request_text, status, mode, cap_usd, spent_usd, reserved_usd, created_at, updated_at, plan_json, owner_token_hash)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
     `).run(
       id,
       request.title,
@@ -142,6 +168,7 @@ export class SQLiteCaseRepository implements CaseRepository {
       budget.reservedUsd,
       now,
       now,
+      ownerTokenHash ?? null,
     );
 
     this.appendEvent({
@@ -157,8 +184,10 @@ export class SQLiteCaseRepository implements CaseRepository {
     return this.getCase(id) as CaseRecord;
   }
 
-  getCase(id: string): CaseRecord | null {
-    const row = this.database.prepare("SELECT * FROM cases WHERE id = ?").get<CaseRow>(id);
+  getCase(id: string, ownerTokenHash?: string): CaseRecord | null {
+    const row = ownerTokenHash
+      ? this.database.prepare("SELECT * FROM cases WHERE id = ? AND owner_token_hash = ?").get<CaseRow>(id, ownerTokenHash)
+      : this.database.prepare("SELECT * FROM cases WHERE id = ?").get<CaseRow>(id);
     if (!row) return null;
 
     const events = this.database
@@ -184,9 +213,11 @@ export class SQLiteCaseRepository implements CaseRepository {
         sourceName: item.source_name,
         sourceUrl: item.source_url ?? undefined,
         retrievedAt: item.retrieved_at,
+        freshness: item.freshness,
         summary: item.summary,
         confidence: item.confidence,
         contentHash: item.content_hash,
+        metadata: item.metadata_json ? JSON.parse(item.metadata_json) : undefined,
       }));
 
     return {
@@ -203,9 +234,17 @@ export class SQLiteCaseRepository implements CaseRepository {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       plan: parsePlan(row.plan_json),
+      report: parseReport(row.report_json),
       events,
       evidence,
     };
+  }
+
+  listCases(ownerTokenHash?: string): CaseRecord[] {
+    const rows = ownerTokenHash
+      ? this.database.prepare("SELECT id FROM cases WHERE owner_token_hash = ? ORDER BY updated_at DESC").all<{ id: string }>(ownerTokenHash)
+      : this.database.prepare("SELECT id FROM cases ORDER BY updated_at DESC").all<{ id: string }>();
+    return rows.map((row) => this.getCase(row.id)).filter((record): record is CaseRecord => record !== null);
   }
 
   updateStatus(id: string, status: CaseStatus): CaseRecord {
@@ -237,6 +276,32 @@ export class SQLiteCaseRepository implements CaseRepository {
     return this.getCase(id) as CaseRecord;
   }
 
+  updatePlan(id: string, plan: AgentPlan): CaseRecord {
+    const current = this.getCase(id);
+    if (!current) throw new Error("Case not found");
+    const parsedPlan = agentPlanSchema.parse(plan);
+    const now = new Date().toISOString();
+    this.database.prepare("UPDATE cases SET plan_json = ?, updated_at = ? WHERE id = ?").run(
+      JSON.stringify(parsedPlan),
+      now,
+      id,
+    );
+    return this.getCase(id) as CaseRecord;
+  }
+
+  saveReport(id: string, report: ReportDraft): CaseRecord {
+    const current = this.getCase(id);
+    if (!current) throw new Error("Case not found");
+    const parsedReport = reportDraftSchema.parse(report);
+    const now = new Date().toISOString();
+    this.database.prepare("UPDATE cases SET report_json = ?, updated_at = ? WHERE id = ?").run(
+      JSON.stringify(parsedReport),
+      now,
+      id,
+    );
+    return this.getCase(id) as CaseRecord;
+  }
+
   appendEvent(event: CaseEvent) {
     const parsed = caseEventSchema.parse(event);
     this.database.prepare(`
@@ -256,8 +321,8 @@ export class SQLiteCaseRepository implements CaseRepository {
   saveEvidence(item: EvidenceItem) {
     const parsed = evidenceItemSchema.parse(item);
     this.database.prepare(`
-      INSERT INTO evidence_items (id, case_id, source_type, source_name, source_url, retrieved_at, summary, confidence, content_hash)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO evidence_items (id, case_id, source_type, source_name, source_url, retrieved_at, freshness, summary, confidence, content_hash, metadata_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       parsed.id,
       parsed.caseId,
@@ -265,9 +330,11 @@ export class SQLiteCaseRepository implements CaseRepository {
       parsed.sourceName,
       parsed.sourceUrl ?? null,
       parsed.retrievedAt,
+      parsed.freshness,
       parsed.summary,
       parsed.confidence,
       parsed.contentHash,
+      parsed.metadata ? JSON.stringify(parsed.metadata) : null,
     );
   }
 
@@ -278,7 +345,7 @@ export class SQLiteCaseRepository implements CaseRepository {
 
 let repository: SQLiteCaseRepository | undefined;
 
-export function getCaseRepository() {
+export function getSQLiteCaseRepository() {
   repository ??= new SQLiteCaseRepository();
   return repository;
 }
