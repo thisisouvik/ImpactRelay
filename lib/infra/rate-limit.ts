@@ -27,7 +27,7 @@ export function redisStatus() {
 export async function enforceRateLimit(identifier: string, route: string) {
   const current = getLimiter();
   if (!current) {
-    if (process.env.RATE_LIMIT_MODE === "required") {
+    if (process.env.RATE_LIMIT_MODE === "required" || process.env.NODE_ENV === "production") {
       return { success: false, limit: 0, remaining: 0, reset: Date.now() + 60_000, degraded: true };
     }
     return { success: true, limit: 0, remaining: 0, reset: Date.now() + 60_000, degraded: true };

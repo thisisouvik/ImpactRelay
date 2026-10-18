@@ -28,4 +28,14 @@ test.describe("ImpactRelay real case workspace", () => {
     const viewportWidth = await page.evaluate(() => window.innerWidth);
     expect(bodyWidth).toBeLessThanOrEqual(viewportWidth);
   });
+
+  test("keeps the public and app pages within a narrow viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const path of ["/", "/workspace", "/cases", "/settings/integrations"]) {
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      const widths = await page.locator("body").evaluate((element) => ({ body: element.scrollWidth, viewport: window.innerWidth }));
+      expect(widths.body, `${path} has horizontal overflow`).toBeLessThanOrEqual(widths.viewport);
+    }
+  });
 });

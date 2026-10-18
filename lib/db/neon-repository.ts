@@ -244,6 +244,9 @@ export class NeonCaseRepository implements CaseRepository {
 let productionRepository: CaseRepository | undefined;
 
 export function getProductionCaseRepository(): CaseRepository {
+  if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is required for production persistence. SQLite fallback is development-only.");
+  }
   if (process.env.DATABASE_URL) {
     productionRepository ??= new NeonCaseRepository();
   } else {
