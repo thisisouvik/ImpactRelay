@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const caseModeSchema = z.enum(["rules", "local", "grok"]);
+export const caseModeSchema = z.enum(["rules", "local", "grok", "0g"]);
 
 export const caseStatusSchema = z.enum([
   "received",
@@ -75,9 +75,31 @@ export const evidenceItemSchema = z.object({
   sourceName: z.string().min(1),
   sourceUrl: z.string().url().optional(),
   retrievedAt: z.string().datetime(),
+  freshness: z.enum(["live", "recent", "stale", "unknown"]),
   summary: z.string().min(1).max(2_000),
   confidence: z.enum(["high", "medium", "low"]),
   contentHash: z.string().min(1),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const reportEvidenceReferenceSchema = z.object({
+  text: z.string().min(1).max(1_000),
+  evidenceIds: z.array(z.string().min(1)).max(10),
+});
+
+export const reportActionSchema = z.object({
+  priority: z.string().min(1).max(20),
+  action: z.string().min(1).max(500),
+  rationale: z.string().min(1).max(1_000),
+  evidenceIds: z.array(z.string().min(1)).max(10),
+});
+
+export const reportDraftSchema = z.object({
+  summary: z.string().min(1).max(2_000),
+  known: z.array(reportEvidenceReferenceSchema).max(10),
+  nextActions: z.array(reportActionSchema).max(10),
+  uncertainties: z.array(reportEvidenceReferenceSchema).max(10),
+  providerId: z.enum(["rules", "grok", "local", "0g"]),
 });
 
 export const planRequestSchema = z.object({
@@ -97,6 +119,7 @@ export type AgentStep = z.infer<typeof agentStepSchema>;
 export type AgentPlan = z.infer<typeof agentPlanSchema>;
 export type CaseEvent = z.infer<typeof caseEventSchema>;
 export type EvidenceItem = z.infer<typeof evidenceItemSchema>;
+export type ReportDraft = z.infer<typeof reportDraftSchema>;
 
 export type CaseRecord = {
   id: string;
@@ -110,4 +133,5 @@ export type CaseRecord = {
   plan?: AgentPlan;
   events: CaseEvent[];
   evidence: EvidenceItem[];
+  report?: ReportDraft;
 };
