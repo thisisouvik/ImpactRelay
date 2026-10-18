@@ -156,13 +156,12 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
+npm run check
 ```
 
 `npm test` must not make network calls. A separate opt-in command may be added for Testnet smoke testing, for example:
 
-```bash
-npm run test:testnet
-```
+The current repository does not include a testnet payment suite. Do not use a missing testnet command as a deployment check; run the opt-in integration flow only after its real adapter and tests exist.
 
 Never make the default test command spend testnet assets.
 

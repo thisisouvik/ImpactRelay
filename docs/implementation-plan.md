@@ -97,7 +97,7 @@ Replace the starter screen with the Signal Garden workspace and make the build r
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:testnet": "vitest run tests/testnet"
+    "check": "npm run lint && npm run typecheck && npm test -- --run && npm run build"
   }
 }
 ```
@@ -524,9 +524,7 @@ Display:
 
 This must be opt-in:
 
-```bash
-npm run test:testnet
-```
+The paid testnet smoke command is intentionally not exposed until the real payment adapter and its isolated test suite are implemented.
 
 It requires:
 
@@ -1106,7 +1104,7 @@ Optional commands:
 ```bash
 npm run dev
 npm run start
-npm run test:testnet
+npm run check
 docker build -t impactrelay .
 docker compose up
 ```

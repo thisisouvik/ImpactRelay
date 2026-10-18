@@ -10,7 +10,7 @@ ImpactRelay has three supported modes:
 | Local integrated | Real local model plus real tools, x402 seller, and Stellar Testnet | Optional provider and testnet secrets |
 | Hosted demo | Public hackathon demonstration | Server-side secrets, compatible streaming host |
 
-Rules local mode is the baseline. A deployment is not considered usable if it requires paid API credits or a functioning blockchain network to create and inspect a real case record. Missing integrations must degrade to an explicit blocked state, never to fabricated data.
+Rules local mode is the baseline. A deployment is not considered usable if it requires paid API credits or a functioning blockchain network to create and inspect a real case record. Missing integrations must degrade to an explicit blocked state, never to fabricated data. Production deployments require `DATABASE_URL` and configured Upstash Redis; the SQLite and unconfigured-rate-limit fallbacks are development-only.
 
 ## Runtime standard
 
@@ -109,6 +109,13 @@ Do not use `NEXT_PUBLIC_` for secrets. If a value is needed by the browser, expo
 - Do not bake secrets into Docker layers, build arguments, or browser bundles.
 
 ## Docker plan
+
+The repository now contains a production Dockerfile using Node.js `22.14.0`, npm lockfile installation, and a non-root runtime user. Runtime secrets are injected with `--env-file` or the hosting platform and are never copied into the image.
+
+```bash
+docker build -t impactrelay .
+docker run --rm -p 3000:3000 --env-file .env.local impactrelay
+```
 
 The Dockerfile should:
 
