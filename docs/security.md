@@ -10,6 +10,8 @@ ImpactRelay handles three sensitive capabilities:
 
 The MVP is a research/demo system. It must be honest about that boundary and default to the least powerful behavior that still demonstrates the product.
 
+The current browser workflow uses an HttpOnly anonymous session cookie and stores only its hash with each case. This prevents a bare case UUID from reading, exporting, planning, running, or pausing another browser session's case. It is not a substitute for authenticated users, account recovery, team access control, or server-side authorization policies.
+
 ## Threat model
 
 | Threat | Example | Primary control |

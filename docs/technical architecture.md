@@ -244,7 +244,7 @@ Any state may transition to `PAUSED`, `BLOCKED`, or `FAILED`. Transitions are va
 
 ```ts
 interface LlmProvider {
-  readonly id: "grok" | "local";
+  readonly id: "grok" | "local" | "0g";
   plan(input: PlannerInput): Promise<AgentPlan>;
   summarize(input: SynthesisInput): Promise<FinalReportDraft>;
 }
@@ -252,9 +252,10 @@ interface LlmProvider {
 
 Provider selection order:
 
-1. The Phase 2 rules planner for transparent local planning.
-2. Explicit Grok or Local provider mode when configured.
-3. A visible blocked state when the selected real provider is unavailable.
+1. Explicit deployment `APP_MODE` when configured.
+2. The case-selected Grok, Local, or 0G provider.
+3. Transparent rules planning when no real provider is requested.
+4. A visible failed state when the selected real provider is unavailable.
 
 Provider selection and failure decisions are recorded as case events. A provider failure must not silently create a different payment, evidence item, or repeated paid step. Test doubles belong under `tests/` only and are never imported by the application runtime.
 

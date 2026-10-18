@@ -113,14 +113,14 @@ Deliverables:
 
 Checks:
 
-- Mock tests for Grok success, invalid output, timeout, and rate limit.
+- Contract tests for Grok success, invalid output, timeout, and rate limit.
 - Local provider contract tests.
 - Live Grok smoke test only when `XAI_API_KEY` is explicitly provided.
 - Secret-scan review to confirm keys never reach the browser bundle.
 
 Acceptance criteria:
 
-- The project remains usable with no Grok key.
+- The project remains usable in Rules mode with no Grok key.
 - A malformed model response is rejected and surfaced as a recoverable error.
 - The model cannot select a tool that is not present in the registry.
 
@@ -196,7 +196,7 @@ Checks:
 
 Acceptance criteria:
 
-- Mock mode works with no external credentials.
+- Rules mode works with no external credentials and real user input.
 - Real testnet mode can be enabled by environment variables only.
 - The deployment never contains secrets in the image or client bundle.
 
@@ -204,11 +204,11 @@ Acceptance criteria:
 
 The first implementation should be deliberately narrow:
 
-1. Build the static Signal Garden shell.
-2. Add one mock case fixture.
-3. Add one mock plan with free and paid steps.
-4. Add the approval checkpoint.
-5. Add the final report and evidence constellation.
+1. Build the real-data Signal Garden shell.
+2. Persist a user-submitted case.
+3. Add request-derived planning and free-tool provenance.
+4. Add the structured provider boundary.
+5. Add the approval checkpoint only after the paid adapter exists.
 
 Only after that visual flow is credible should provider and payment dependencies be installed.
 

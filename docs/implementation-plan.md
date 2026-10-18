@@ -1,6 +1,6 @@
 # ImpactRelay Implementation Plan
 
-ImpactRelay is now in **Phase 2**: the first real case workflow is being built on top of the Phase 1 workspace.
+ImpactRelay is now in the **UI/infrastructure refactor**: the real provider and free-tool workflow is being expanded into a multi-route product with Neon, Upstash Redis, and optional 0G Compute.
 
 Current stack:
 
@@ -14,6 +14,9 @@ Current gaps:
 
 - Real external tool adapters are not connected yet.
 - Real Grok/local model adapters are not connected yet.
+- The public landing page and route-based product surface are being added.
+- Neon production persistence and Upstash Redis rate limits/cache are being added.
+- 0G Compute Router is being added as an optional provider; 0G Storage remains an archive follow-up.
 - x402, Stellar Testnet payments, and hosted Vercel persistence are not connected yet.
 - The current rules planner is intentionally transparent and is not represented as an LLM result.
 
@@ -338,7 +341,7 @@ Add:
 
 ---
 
-## Phase 4 — Grok, local, and mock provider adapters
+## Phase 4 — Grok and local provider adapters
 
 ### Objectives
 
@@ -348,7 +351,7 @@ Support multiple model providers without coupling the domain logic to one provid
 
 ```ts
 interface LlmProvider {
-  readonly id: "grok" | "local" | "mock";
+  readonly id: "grok" | "local";
 
   plan(input: PlannerInput): Promise<AgentPlan>;
 
@@ -358,10 +361,10 @@ interface LlmProvider {
 
 ### Provider selection
 
-1. Explicit configured mode.
-2. Grok when configured and healthy.
-3. Local provider when configured and healthy.
-4. Mock provider as the final fallback.
+1. Explicit deployment `APP_MODE` when configured.
+2. The case-selected `grok` or `local` provider.
+3. Transparent `rules` mode when no provider is requested.
+4. A visible failed state when a requested real provider is unavailable; no silent fallback.
 
 Record the selected provider in the case event history.
 
@@ -382,7 +385,7 @@ Implement:
 
 Implement a generic HTTP provider for a locally running model server.
 
-A local model URL will not work from Vercel unless it is externally reachable. Vercel should use Mock or Grok mode by default.
+A local model URL will not work from Vercel unless it is externally reachable. Vercel should use Rules or Grok mode by default.
 
 ### Required tests
 
@@ -392,7 +395,7 @@ A local model URL will not work from Vercel unless it is externally reachable. V
 - Empty output.
 - Timeout.
 - Rate limit.
-- Provider fallback.
+- Provider selection and configuration failure.
 - Unknown model-selected tool.
 - Fake source URL.
 - Prompt-injection content from an external source.
@@ -400,7 +403,7 @@ A local model URL will not work from Vercel unless it is externally reachable. V
 
 ### Acceptance criteria
 
-- No Grok key is required for local development.
+- No Grok key is required for Rules mode or local-provider development.
 - Malformed model output is rejected.
 - The model cannot execute unregistered tools.
 - Final reports distinguish facts from synthesis.
@@ -664,7 +667,7 @@ This should be documented in a new ADR because local SQLite cannot be treated as
 - Invalid quotes fail closed.
 - Unverified settlements do not unlock paid content.
 - No secrets appear in browser bundles or logs.
-- Mock mode still works completely.
+- Rules mode still works completely without credentials.
 
 ---
 
@@ -695,7 +698,7 @@ The risk service can be deployed separately or replaced with a compatible hosted
 Use:
 
 ```text
-APP_MODE=mock
+APP_MODE=rules
 STELLAR_NETWORK=stellar:testnet
 ```
 
@@ -704,7 +707,7 @@ Do not expose production payment secrets to preview deployments.
 Preview must verify:
 
 - UI.
-- Mock orchestration.
+- Rules orchestration and provider failure boundaries.
 - API routes.
 - Database connectivity.
 - Export.
@@ -715,10 +718,10 @@ Preview must verify:
 Start with:
 
 ```text
-APP_MODE=mock
+APP_MODE=rules
 ```
 
-This keeps the hosted application usable if Grok, Stellar, the facilitator, or the paid service is unavailable.
+This keeps the hosted application usable if Grok, Stellar, the facilitator, or the paid service is unavailable while still requiring real user input.
 
 ### Integrated production environment
 
@@ -749,21 +752,21 @@ Never expose these through `NEXT_PUBLIC_` variables.
 3. Connect the hosted database.
 4. Configure Preview and Production variables separately.
 5. Run database migrations using a protected release process.
-6. Deploy a Mock-mode preview.
+6. Deploy a Rules-mode preview.
 7. Verify:
    - `/`
    - `/api/health`
    - Case creation.
    - Plan generation.
-   - Mock execution.
+   - Rules execution and a visible provider failure boundary.
    - Export.
 8. Deploy to Production.
 9. Configure a custom domain if required.
-10. Run the Mock-mode browser rehearsal.
+10. Run the Rules-mode browser rehearsal.
 11. Configure Testnet credentials only after validation.
 12. Execute one small Testnet payment.
 13. Verify the transaction on the configured explorer.
-14. Keep the Mock-mode demo as the fallback presentation path.
+14. Keep the Rules-mode real-data demo as the fallback presentation path.
 
 ### Vercel runtime requirements
 
@@ -819,7 +822,7 @@ npm run build
 npm run test:e2e
 ```
 
-The browser suite must use Mock mode and must not require:
+The browser suite must use Rules mode and must not require:
 
 - Grok credentials.
 - Stellar credentials.
@@ -913,7 +916,7 @@ Use a protected `testnet` GitHub environment with approval required.
 
 Use Vercel's native Git integration for pull request previews. This avoids exposing Vercel credentials to untrusted forked pull requests.
 
-All preview deployments should use Mock mode.
+All preview deployments should use Rules mode.
 
 ---
 
@@ -940,7 +943,7 @@ All preview deployments should use Mock mode.
 
 Run the same contract tests against:
 
-- Mock provider.
+- Rules planner contract.
 - Local provider with a stub HTTP server.
 - Grok provider with stubbed responses.
 
@@ -952,7 +955,7 @@ Cover:
 - Empty output.
 - Timeout.
 - Rate limit.
-- Provider fallback.
+- Provider configuration failure without fallback.
 - Provider failure event logging.
 
 ### Tool adapter tests
@@ -1018,19 +1021,19 @@ Verify:
 
 ### Browser acceptance tests
 
-The default browser suite should run in Mock mode and cover:
+The default browser suite should run in Rules mode and cover:
 
 1. Open the new-case screen.
-2. Select the flood-support example.
+2. Enter a real or redacted case request.
 3. Create a case.
 4. Review the plan.
 5. Run free checks.
-6. See the payment checkpoint.
-7. Reject the payment.
-8. Confirm the paid step does not execute.
+6. See the real evidence boundary.
+7. Run available free tools.
+8. Confirm failed provider/tool output is not promoted to evidence.
 9. Reload the case.
-10. Approve a mock payment flow.
-11. See the mock receipt labeled as mock.
+10. Select Local or Grok only when configured.
+11. See a structured report only when a real provider returns one.
 12. Inspect evidence.
 13. Read the final report.
 14. Export JSON.
@@ -1110,4 +1113,4 @@ docker compose up
 
 `npm test` must remain deterministic, offline, and free of Testnet spending.
 
-The most important sequencing rule is to finish the Mock-mode vertical slice before adding Grok, x402, Stellar, or hosted persistence. This creates a dependable demo first and allows every external integration to be validated against an already-working product flow.
+The most important sequencing rule is to finish the Rules-mode real-data vertical slice before adding x402 or Stellar. This creates a dependable, inspectable workflow first and ensures every external integration is validated against an already-working product flow without fabricated fallbacks.

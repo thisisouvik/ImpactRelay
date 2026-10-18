@@ -73,8 +73,12 @@ The eventual `.env.example` must contain placeholders only. Planned server-only 
 | `APP_MODE` | Yes | `rules`, `local`, or `grok` |
 | `XAI_API_KEY` | No | Server-side Grok credential |
 | `XAI_MODEL` | No | Explicit Grok model identifier |
+| `XAI_BASE_URL` | No | Grok-compatible API base URL; defaults to xAI |
 | `LOCAL_LLM_BASE_URL` | No | Local model server URL |
 | `LOCAL_LLM_MODEL` | No | Local model identifier |
+| `PUBLIC_SOURCE_ALLOWLIST` | No | Comma-separated HTTPS public-source host allow-list |
+| `IMPACTRELAY_USER_AGENT` | No | Identifying user agent for public-source requests |
+| `IMPACTRELAY_DB_PATH` | No | Local SQLite path override |
 | `STELLAR_NETWORK` | No | Must be `stellar:testnet` for the MVP |
 | `STELLAR_RPC_URL` | No | Stellar Testnet RPC endpoint |
 | `STELLAR_PRIVATE_KEY` | No | Disposable server-side testnet signer |
@@ -82,6 +86,14 @@ The eventual `.env.example` must contain placeholders only. Planned server-only 
 | `X402_FACILITATOR_URL` | No | Facilitator endpoint |
 | `RISK_SERVICE_URL` | No | Local/hosted paid service URL |
 | `DATABASE_URL` | No | Local SQLite path or equivalent |
+| `UPSTASH_REDIS_REST_URL` | No | Upstash Redis REST endpoint |
+| `UPSTASH_REDIS_REST_TOKEN` | No | Upstash Redis REST token |
+| `RATE_LIMIT_MODE` | No | `required` in hosted production, `disabled` for local development |
+| `REDIS_CACHE_PREFIX` | No | Redis namespace prefix |
+| `OG_COMPUTE_API_KEY` | No | Server-only 0G Router `sk-` key |
+| `OG_COMPUTE_BASE_URL` | No | 0G Router API base URL |
+| `OG_COMPUTE_MODEL` | No | 0G Router model identifier |
+| `OG_COMPUTE_TRUST_MODE` | No | Optional 0G trust tier, for example `private` |
 | `LOG_LEVEL` | No | Redacted server log level |
 
 Do not use `NEXT_PUBLIC_` for secrets. If a value is needed by the browser, expose a separate non-sensitive status value such as `NEXT_PUBLIC_DEMO_NETWORK=stellar:testnet`.
