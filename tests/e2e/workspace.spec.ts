@@ -1,24 +1,28 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("ImpactRelay fixture workspace", () => {
-  test("lets a reviewer inspect and approve the mock checkpoint", async ({ page }) => {
-    await page.goto("/");
+test.describe("ImpactRelay real case workspace", () => {
+  test("lets a reviewer create a case and inspect its stored plan", async ({ page }) => {
+    await page.goto("/cases/new");
+    await page.waitForLoadState("networkidle");
 
-    await expect(page.getByRole("heading", { name: "Flood support near Guwahati" })).toBeVisible();
-    await expect(page.getByText("Payment checkpoint")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Turn a messy request into a reviewable plan." })).toBeVisible();
+    await page.getByLabel("Case title").fill("E2E community support request");
+    await page.getByLabel("Support request").fill("Find public resources near the affected area and prepare a reviewable checklist for a volunteer.");
+    await page.getByRole("button", { name: /Save case and prepare plan/i }).click();
 
-    await page.getByRole("button", { name: "Approve once" }).click();
-
-    await expect(page.getByText("Approval recorded in Mock mode")).toBeVisible();
-    await expect(page.getByText("No wallet signing or Testnet transaction is performed in this fixture.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Agent plan" })).toBeVisible();
+    await expect(page.getByText("Case stored in local SQLite. The plan was generated from your request.")).toBeVisible();
+    await expect(page.getByText("public · source · read")).not.toBeVisible();
+    await expect(page.getByText("No source-backed evidence has been recorded for this case yet.")).toBeVisible();
   });
 
-  test("keeps the payment checkpoint readable on a narrow viewport", async ({ page }) => {
+  test("keeps the real case form readable on a narrow viewport", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/");
+    await page.goto("/cases/new");
+    await page.waitForLoadState("networkidle");
 
-    await expect(page.getByText("Payment checkpoint")).toBeVisible();
-    await expect(page.getByText("Stellar Testnet")).toBeVisible();
+    await expect(page.getByLabel("Case title")).toBeVisible();
+    await expect(page.getByLabel("Support request")).toBeVisible();
 
     const bodyWidth = await page.locator("body").evaluate((element) => element.scrollWidth);
     const viewportWidth = await page.evaluate(() => window.innerWidth);
