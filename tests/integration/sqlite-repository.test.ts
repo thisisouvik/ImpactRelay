@@ -41,4 +41,27 @@ describe("SQLite case repository", () => {
     expect(repository.getCase(record.id)?.plan?.steps).toHaveLength(1);
     expect(repository.getCase(record.id)?.events.length).toBeGreaterThanOrEqual(1);
   });
+
+  it("filters cases by the anonymous browser-session hash", () => {
+    const directory = mkdtempSync(join(tmpdir(), "impactrelay-owner-"));
+    const repository = new SQLiteCaseRepository(join(directory, "case.sqlite"));
+    repositories.push(repository);
+
+    const owned = repository.createCase({
+      title: "Owned request",
+      requestText: "Store this request for the current browser session only.",
+      mode: "rules",
+      budgetCapUsd: "0.05",
+    }, "owner-a");
+    repository.createCase({
+      title: "Other request",
+      requestText: "This request belongs to a different browser session.",
+      mode: "rules",
+      budgetCapUsd: "0.05",
+    }, "owner-b");
+
+    expect(repository.getCase(owned.id, "owner-a")?.title).toBe("Owned request");
+    expect(repository.getCase(owned.id, "owner-b")).toBeNull();
+    expect(repository.listCases("owner-a").map((item) => item.title)).toEqual(["Owned request"]);
+  });
 });

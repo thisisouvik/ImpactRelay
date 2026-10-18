@@ -23,9 +23,20 @@ describe("rules planner", () => {
     expect(toolIds).toEqual([
       "location.lookup",
       "weather.current",
-      "public.source.read",
-      "text.localize",
     ]);
     expect(plan.steps.every((step) => step.status === "ready")).toBe(true);
+  });
+
+  it("adds nearby resource discovery after location resolution", () => {
+    const plan = buildPlan({
+      ...record,
+      title: "Find local shelters",
+      requestText: "Find nearby shelters and public water resources near Guwahati for a volunteer.",
+    });
+
+    expect(plan.steps.map((step) => step.toolId)).toEqual([
+      "location.lookup",
+      "resources.nearby",
+    ]);
   });
 });
