@@ -1,9 +1,11 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { StatusBadge } from "@/components/ui/status-badge";
-import type { AgentPlan, CaseRecord, CaseStatus } from "@/lib/domain/schemas";
+import { EvidenceList } from "@/components/evidence/evidence-list";
+import { ImpactRelayLogo } from "@/components/brand/impactrelay-logo";
+import type { AgentPlan, CaseMode, CaseRecord, CaseStatus } from "@/lib/domain/schemas";
 
 type ApiPayload = {
   case?: CaseRecord;
@@ -21,7 +23,7 @@ const statusCopy: Record<CaseStatus, string> = {
   "payment-required": "Payment required",
   "running-paid-tool": "Running paid tool",
   "validating-evidence": "Validating evidence",
-  "report-ready": "Report ready",
+  "report-ready": "Evidence ready",
   completed: "Completed",
   paused: "Paused",
   blocked: "Blocked safely",
@@ -44,13 +46,27 @@ async function readPayload(response: Response) {
   return (await response.json()) as ApiPayload;
 }
 
-export function Workspace() {
+export function Workspace({ initialCaseId, forceNew = false }: { initialCaseId?: string; forceNew?: boolean } = {}) {
   const [caseRecord, setCaseRecord] = useState<CaseRecord | null>(null);
   const [title, setTitle] = useState("");
   const [requestText, setRequestText] = useState("");
+  const [mode, setMode] = useState<CaseMode>("rules");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    const storedId = forceNew ? null : initialCaseId ?? window.localStorage.getItem("impactrelay.currentCaseId");
+    if (!storedId) return;
+
+    fetch(`/api/cases/${storedId}`)
+      .then((response) => response.ok ? response.json() as Promise<ApiPayload> : null)
+      .then((payload) => {
+        if (payload?.case) setCaseRecord(payload.case);
+        else window.localStorage.removeItem("impactrelay.currentCaseId");
+      })
+      .catch(() => window.localStorage.removeItem("impactrelay.currentCaseId"));
+  }, [forceNew, initialCaseId]);
 
   async function preparePlan(caseId: string) {
     const response = await fetch("/api/agent/plan", {
@@ -59,6 +75,10 @@ export function Workspace() {
       body: JSON.stringify({ caseId }),
     });
     const payload = await readPayload(response);
+    if (payload.case) {
+      setCaseRecord(payload.case);
+      window.localStorage.setItem("impactrelay.currentCaseId", payload.case.id);
+    }
     if (!response.ok || !payload.case) {
       throw new Error(payload.error?.message ?? "The plan could not be created.");
     }
@@ -75,13 +95,19 @@ export function Workspace() {
       const response = await fetch("/api/cases", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title, requestText, mode: "rules", budgetCapUsd: "0.05" }),
+        body: JSON.stringify({ title, requestText, mode, budgetCapUsd: "0.05" }),
       });
       const payload = await readPayload(response);
+      if (payload.case) {
+        setCaseRecord(payload.case);
+        window.localStorage.setItem("impactrelay.currentCaseId", payload.case.id);
+      }
       if (!response.ok || !payload.case) {
         throw new Error(payload.error?.message ?? "The case could not be saved.");
       }
 
+      setCaseRecord(payload.case);
+      window.localStorage.setItem("impactrelay.currentCaseId", payload.case.id);
       const plannedCase = await preparePlan(payload.case.id);
       setCaseRecord(plannedCase);
       setNotice("Case stored in local SQLite. The plan was generated from your request.");
@@ -118,11 +144,17 @@ export function Workspace() {
         body: JSON.stringify({ caseId: caseRecord.id }),
       });
       const payload = await readPayload(response);
+      if (payload.case) {
+        setCaseRecord(payload.case);
+        window.localStorage.setItem("impactrelay.currentCaseId", payload.case.id);
+      }
       if (!response.ok || !payload.case) {
         throw new Error(payload.error?.message ?? "The case could not be run.");
       }
       setCaseRecord(payload.case);
-      setNotice("Execution stopped safely. No synthetic tool result was created before Phase 3 adapters exist.");
+      setNotice(payload.execution === "completed"
+        ? "Free tools completed. Evidence was validated and the report was stored when a real provider was configured."
+        : "Execution stopped safely. Failed provider or tool output was not promoted to evidence.");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "The case could not be run.");
     } finally {
@@ -168,8 +200,10 @@ export function Workspace() {
 
   function resetWorkspace() {
     setCaseRecord(null);
+    window.localStorage.removeItem("impactrelay.currentCaseId");
     setTitle("");
     setRequestText("");
+    setMode("rules");
     setNotice(null);
     setError(null);
   }
@@ -177,17 +211,7 @@ export function Workspace() {
   return (
     <div className="app-shell">
       <aside className="case-rail" aria-label="Case navigation">
-        <div className="brand-lockup">
-          <span className="brand-mark" aria-hidden="true">
-            <span className="brand-mark__core" />
-            <span className="brand-mark__orbit brand-mark__orbit--one" />
-            <span className="brand-mark__orbit brand-mark__orbit--two" />
-          </span>
-          <span>
-            <strong>ImpactRelay</strong>
-            <small>evidence desk</small>
-          </span>
-        </div>
+        <div className="brand-lockup"><ImpactRelayLogo /></div>
 
         <button className="primary-button primary-button--rail" type="button" onClick={resetWorkspace}>
           <span className="button-symbol" aria-hidden="true">+</span>
@@ -200,7 +224,7 @@ export function Workspace() {
             <span className="case-link__marker case-link__marker--field" aria-hidden="true" />
             <span>
               <strong>{caseRecord ? caseRecord.title : "No case selected"}</strong>
-              <small>{caseRecord ? "Stored locally" : "Create a case to begin"}</small>
+               <small>{caseRecord ? "Stored case" : "Create a case to begin"}</small>
             </span>
           </div>
         </div>
@@ -208,7 +232,7 @@ export function Workspace() {
         <div className="rail-section rail-section--fixture">
           <div className="rail-label-row">
             <p className="rail-label">Execution mode</p>
-            <StatusBadge label="Rules" tone="signal" />
+             <StatusBadge label={caseRecord?.mode ?? mode} tone="signal" />
           </div>
           <p className="rail-footnote">The current planner uses the submitted request directly. No sample case or provider response is bundled.</p>
         </div>
@@ -217,8 +241,8 @@ export function Workspace() {
 
         <div className="rail-footer">
           <div className="rail-status-line">
-            <StatusBadge label="Local SQLite" tone="field" />
-            <span className="mono-text">v0.2</span>
+             <StatusBadge label="Local-first" tone="field" />
+             <span className="mono-text">live</span>
           </div>
           <p className="rail-footnote">Do not enter real sensitive personal data in this development build.</p>
         </div>
@@ -226,18 +250,8 @@ export function Workspace() {
 
       <div className="workspace-frame">
         <div className="mobile-bar">
-          <div className="brand-lockup">
-            <span className="brand-mark" aria-hidden="true">
-              <span className="brand-mark__core" />
-              <span className="brand-mark__orbit brand-mark__orbit--one" />
-              <span className="brand-mark__orbit brand-mark__orbit--two" />
-            </span>
-            <span>
-              <strong>ImpactRelay</strong>
-              <small>evidence desk</small>
-            </span>
-          </div>
-          <StatusBadge label="Local" tone="field" />
+           <div className="brand-lockup"><ImpactRelayLogo /></div>
+           <StatusBadge label={caseRecord?.mode ?? mode} tone="field" />
         </div>
 
         {!caseRecord ? (
@@ -255,7 +269,7 @@ export function Workspace() {
                 name="title"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder="e.g. Flood support near Guwahati"
+                 placeholder="e.g. Volunteer resource request"
                 required
                 minLength={3}
                 maxLength={120}
@@ -276,6 +290,17 @@ export function Workspace() {
                 maxLength={10_000}
                 rows={8}
               />
+
+              <div className="form-label-row">
+                <label htmlFor="case-mode">Planning provider</label>
+                <span className="field-hint">Server-side selection</span>
+              </div>
+              <select id="case-mode" value={mode} onChange={(event) => setMode(event.target.value as CaseMode)}>
+                <option value="rules">Rules planner · no external credentials</option>
+                <option value="local">Local model · OpenAI-compatible server</option>
+                <option value="grok">Grok · xAI API</option>
+                <option value="0g">0G Compute · decentralized Router</option>
+              </select>
 
               <div className="form-safety-note">
                 <span aria-hidden="true">◎</span>
@@ -308,7 +333,7 @@ export function Workspace() {
                   <span className="breadcrumb__current">{caseRecord.id}</span>
                 </div>
                 <div className="header-actions">
-                  <StatusBadge label="Rules planner" tone="signal" />
+                  <StatusBadge label={`${caseRecord.mode} mode`} tone="signal" />
                   <StatusBadge label="SQLite" tone="field" />
                   <button className="quiet-button" type="button" onClick={handlePause} disabled={isSubmitting}>
                     <span aria-hidden="true">Ⅱ</span>
@@ -393,14 +418,38 @@ export function Workspace() {
                     ))}
                   </div>
                 </section>
+
+                <section className="evidence-record-panel" aria-labelledby="evidence-title">
+                  <SectionHeading eyebrow="Source provenance" title="Evidence" description="Only adapter responses are promoted here. Model synthesis is not included in this phase." action={<span className="stream-count">{caseRecord.evidence.length} items</span>} />
+                  <EvidenceList evidence={caseRecord.evidence} />
+                </section>
+
+                {caseRecord.report ? (
+                  <section className="report-record-panel" aria-labelledby="report-title">
+                     <SectionHeading eyebrow={caseRecord.report.providerId === "rules" ? "Transparent evidence brief" : "Provider synthesis"} title="Action brief" description={caseRecord.report.providerId === "rules" ? "Facts, human verification steps, and uncertainty are derived from validated sources without model claims." : "This report is generated only from the stored evidence IDs below."} action={<StatusBadge label={caseRecord.report.providerId === "rules" ? "Rules analysis" : `${caseRecord.report.providerId} provider`} tone="signal" />} />
+                    <p className="report-summary">{caseRecord.report.summary}</p>
+                    <div className="report-block">
+                      <h3>What we know</h3>
+                      {caseRecord.report.known.map((item) => <div className="report-record-item" key={item.text}><strong>{item.text}</strong><small>Evidence · {item.evidenceIds.length ? item.evidenceIds.join(", ") : "Not cited"}</small></div>)}
+                    </div>
+                    <div className="report-block">
+                      <h3>Recommended next actions</h3>
+                      {caseRecord.report.nextActions.map((item) => <div className="report-record-item" key={`${item.priority}-${item.action}`}><strong>{item.priority}. {item.action}</strong><small>{item.rationale} · Evidence · {item.evidenceIds.length ? item.evidenceIds.join(", ") : "Not cited"}</small></div>)}
+                    </div>
+                    <div className="report-block">
+                      <h3>Still uncertain</h3>
+                      {caseRecord.report.uncertainties.map((item) => <div className="report-record-item" key={item.text}><strong>{item.text}</strong><small>Evidence · {item.evidenceIds.length ? item.evidenceIds.join(", ") : "Not cited"}</small></div>)}
+                    </div>
+                  </section>
+                ) : null}
               </section>
 
               <aside className="case-review-column" aria-label="Case review summary">
                 <div className="review-card">
                   <p className="eyebrow">Evidence boundary</p>
-                  <h2>No evidence yet</h2>
-                  <p>This case has not called a real external tool. The interface will not display placeholder sources or invented confidence.</p>
-                  <div className="review-card__status"><span className="legend-dot legend-dot--amber" />Phase 3 tool adapters pending</div>
+                  <h2>{caseRecord.evidence.length ? `${caseRecord.evidence.length} source signal${caseRecord.evidence.length === 1 ? "" : "s"}` : "No evidence yet"}</h2>
+                  <p>{caseRecord.evidence.length ? "These records came from real free-tool responses and include retrieval metadata." : "This case has not called a real external tool. The interface will not display placeholder sources or invented confidence."}</p>
+                  <div className="review-card__status"><span className={`legend-dot legend-dot--${caseRecord.evidence.length ? "field" : "amber"}`} />{caseRecord.evidence.length ? "Provenance recorded" : "Real adapters pending"}</div>
                 </div>
                 <div className="review-card review-card--quiet">
                   <p className="eyebrow">Payment boundary</p>
