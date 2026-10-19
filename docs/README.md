@@ -20,6 +20,7 @@ This directory is the source of truth for the product definition and the impleme
 
 The current recording checklist is in [demo-runbook.md](demo-runbook.md).
 The environment and free-credential guide is in [env-credentials.md](env-credentials.md).
+The normal-user manual test checklist is in [manual-testing-guide.md](manual-testing-guide.md).
 
 ## Documentation rules
 

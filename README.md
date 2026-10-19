@@ -48,6 +48,7 @@ Read the documents in this order before writing application code:
 6. [Security](docs/security.md) — payment, prompt-injection, privacy, and agent safety.
 7. [Testing](docs/testing.md) — offline-first verification and the eventual end-to-end checks.
 8. [Architecture decisions](docs/decisions/) — short records for choices that should not be silently reversed.
+9. [Manual testing](docs/manual-testing-guide.md) — normal-user local and hosted verification steps.
 
 [Documentation index](docs/README.md)
 
