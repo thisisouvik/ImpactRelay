@@ -1,8 +1,27 @@
 # ImpactRelay
 
-ImpactRelay is an evidence-first AI caseworker for community assistance. It turns a messy request into a bounded action plan, gathers evidence from free and paid services, and records the result—including small Stellar x402 testnet payments—in a reviewable case file.
+<p align="center">
+  <img src="public/logo.png" alt="ImpactRelay logo" width="150" />
+</p>
 
-The repository now contains the real case workflow. A user can submit a request, persist it in local SQLite, generate a transparent rules-based plan or use a configured Grok/local provider, inspect lifecycle events, run free tools, review provenance, and export the stored record. Wallet signing and blockchain payments remain intentionally unavailable until their real adapters are implemented.
+<h2 align="center">ImpactRelay · Evidence before confidence</h2>
+
+ImpactRelay is an evidence-first AI caseworker for community assistance. It turns an uncertain request into a bounded plan, retrieves live public signals, separates verified facts from recommendations, and keeps a reviewable case record.
+
+## The problem our AI agent solves
+
+Community volunteers often receive incomplete, urgent requests such as “find help near this area” or “check whether the situation is getting worse.” A normal chatbot can produce fluent but unverified answers, stale links, or confident guesses.
+
+ImpactRelay addresses that problem by:
+
+- turning the user's real request into small, read-only steps;
+- querying live public sources instead of shipping scenario fixtures;
+- storing retrieval time, source URL, freshness, confidence, and content hashes;
+- keeping failed or unavailable tools visible;
+- separating source-backed facts, human verification actions, and uncertainty;
+- keeping provider keys server-side and execution bounded.
+
+The current product does not claim to complete payments or side effects. Stellar/x402 payment integration remains a future boundary and is not represented as working in the runtime.
 
 ## Project direction
 
@@ -34,11 +53,48 @@ Read the documents in this order before writing application code:
 
 ## Current stack
 
+- Node.js `22.14.0` pinned in `.nvmrc`
+- npm `11.x`
 - Next.js `16.4.2` App Router
 - React `19.3.0`
-- TypeScript
-- Tailwind CSS `4`
+- TypeScript `5.9.3`
+- Tailwind CSS `4.3.3`
+- Zod `4.6.7`
+- Framer Motion `12.43.0`
+- Lucide React `0.511.0`
+- next-themes `0.4.4`
+- Vitest `3.2.4`
+- Playwright `1.52.0`
+- Neon Serverless driver `1.0.1`
+- Upstash Ratelimit `2.0.7`
+- Upstash Redis `1.34.4`
 - npm with the committed `package-lock.json`
+
+## AI agent tools
+
+The runtime tool registry currently supports these real, bounded tools:
+
+| Tool ID | Live source | What it does |
+| --- | --- | --- |
+| `location.lookup` | OpenStreetMap Nominatim | Resolves a place into coordinates and a display name |
+| `weather.current` | Open-Meteo | Retrieves current weather after location resolution |
+| `resources.nearby` | OpenStreetMap Overpass | Attempts to find nearby mapped shelters, hospitals, food, water, and social resources |
+| `public.source.read` | HTTPS sources from the configured allow-list | Reads a supplied public guidance page with redirect and size checks |
+
+Tool results are validated before becoming evidence. A source outage is shown as a failed or partial step; it is never converted into fake data.
+
+## Supported AI providers and models
+
+| Provider | Supported model configuration | Status |
+| --- | --- | --- |
+| Rules | Built-in deterministic planner and evidence brief | Available with no credentials |
+| Local | Any OpenAI-compatible local model configured with `LOCAL_LLM_MODEL` | Optional; model depends on the local runtime |
+| Grok / xAI | `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-4.3`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, `grok-build-0.1` | Optional; account access and structured-output capability must be checked |
+| 0G Compute Router | A model returned by the live 0G `/v1/models` catalog | Optional; model and trust-tier availability changes over time |
+
+One xAI API key can be used with multiple models permitted for the same account. ImpactRelay currently selects one server-side default via `XAI_MODEL`; the browser cannot choose arbitrary model IDs. See [docs/env-credentials.md](docs/env-credentials.md) for credential setup and official model references.
+
+Model availability, quotas, pricing, and free credits are controlled by each provider and can change. Rules mode remains the no-key fallback.
 
 Planned integrations are intentionally provider-abstracted:
 
@@ -55,18 +111,48 @@ The xAI API may not provide a universally free quota. The project must remain ru
 
 The no-credential Rules path now supports real location resolution, nearby mapped resource discovery, current weather context, provenance metadata, and a transparent evidence brief. Follow [docs/demo-runbook.md](docs/demo-runbook.md) to rehearse and record the flow. The current 0G boundary and official documentation links are in [docs/0g-implementation.md](docs/0g-implementation.md).
 
+## Deployment and demo links
+
+Add these after the hosted deployment and recording are complete:
+
+- **Live deployment:** `[ADD DEPLOYED URL]`
+- **Demo video:** `[ADD DEMO VIDEO URL]`
+
+## Social media posts
+
+Add product-launch and demo posts here later:
+
+- **X / Twitter:** `[ADD POST URL]`
 ## Existing checks
 
 Run from the repository root:
 
 ```bash
-npm run lint
-npx --no-install tsc --noEmit --incremental false
+npm ci
+cp .env.example .env.local
+npm run dev
 ```
+
+Open `http://localhost:3000` and use `/cases/new` for the real case workflow.
 
 The lint, typecheck, test, and build commands are now configured. The current build uses a local/system font strategy and the first case workflow is covered by unit and SQLite integration tests.
 
+The repository also includes a pinned Node 22 Docker build and GitHub Actions workflow:
+
+```bash
+docker build -t impactrelay .
+docker run --rm -p 3000:3000 --env-file .env.local impactrelay
+```
+
+Run the full offline production gate with:
+
+```bash
+npm run check
+```
+
 Run `npm ci` on Node.js 22 before using the test and browser commands. The application currently uses local SQLite and the rules planner; external integrations will be added only with real adapters and their own verification.
+
+For hosted production, configure `DATABASE_URL` for Neon and the two Upstash Redis values before deploying. Production rejects the SQLite fallback and requires rate limiting. See [docs/env-credentials.md](docs/env-credentials.md) and [docs/deployment.md](docs/deployment.md).
 
 ## Repository status
 
