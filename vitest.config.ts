@@ -2,6 +2,8 @@ import { defineConfig } from "vitest/config";
 import path from "node:path";
 
 export default defineConfig({
+  // Live credentials belong to explicit diagnostic commands, never offline tests.
+  envDir: false,
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "."),
