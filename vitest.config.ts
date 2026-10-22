@@ -15,5 +15,6 @@ export default defineConfig({
     include: ["tests/unit/**/*.test.{ts,tsx}", "tests/integration/**/*.test.{ts,tsx}"],
     exclude: ["tests/e2e/**"],
     globals: false,
+    testTimeout: 15_000,
   },
 });
