@@ -54,6 +54,7 @@ describe("ImpactRelay workspace", () => {
     expect(screen.getByRole("heading", { name: "Turn a messy request into a reviewable plan." })).toBeInTheDocument();
     expect(screen.getByLabelText("Case title")).toBeInTheDocument();
     expect(screen.getByLabelText("Support request")).toBeInTheDocument();
+    expect(screen.getByText("Persists to configured database · server-selected provider")).toBeInTheDocument();
     expect(screen.queryByText("Flood support near Guwahati")).not.toBeInTheDocument();
   });
 
@@ -70,7 +71,26 @@ describe("ImpactRelay workspace", () => {
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Agent plan" })).toBeInTheDocument());
     expect(screen.getByText("public · source · read")).toBeInTheDocument();
-    expect(screen.getByText("Case stored in local SQLite. The plan was generated from your request.")).toBeInTheDocument();
+    expect(screen.getByText("Case saved. The plan was generated from your request.")).toBeInTheDocument();
+    expect(screen.getByText("Persisted")).toBeInTheDocument();
+    expect(screen.getByText("ready")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("offers Groq and submits the explicit Groq mode", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ case: { ...createdCase, mode: "groq" } }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ case: { ...plannedCase, mode: "groq" } }), { status: 200 }));
+
+    render(<Workspace forceNew />);
+    expect(screen.getByRole("option", { name: "Groq · Groq API" })).toHaveValue("groq");
+    fireEvent.change(screen.getByLabelText("Case title"), { target: { value: createdCase.title } });
+    fireEvent.change(screen.getByLabelText("Support request"), { target: { value: createdCase.requestText } });
+    fireEvent.change(screen.getByLabelText("Planning provider"), { target: { value: "groq" } });
+    fireEvent.click(screen.getByRole("button", { name: /Save case and prepare plan/i }));
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Agent plan" })).toBeInTheDocument());
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ mode: "groq" });
+    expect(screen.getByText("groq mode")).toBeInTheDocument();
   });
 });
