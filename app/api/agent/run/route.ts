@@ -7,13 +7,13 @@ import { executeFreeTool } from "@/lib/tools/registry";
 import { getLlmProvider } from "@/lib/ai/selection";
 import { ProviderError } from "@/lib/ai/types";
 import { buildRulesReport } from "@/lib/agent/report";
-import { enforceRateLimit, rateLimitResponse, requestIdentifier } from "@/lib/infra/rate-limit";
+import { enforceRateLimit, rateLimitDeniedResponse, requestIdentifier } from "@/lib/infra/rate-limit";
 import { sessionHashFromRequest } from "@/lib/security/case-session";
 
 export async function POST(request: Request) {
   try {
     const limit = await enforceRateLimit(requestIdentifier(request), "agent:run");
-    if (!limit.success) return NextResponse.json({ error: { code: "RATE_LIMITED", message: "Execution is temporarily rate-limited. Try again shortly." } }, { status: 429, headers: rateLimitResponse(limit) });
+    if (!limit.success) return rateLimitDeniedResponse(limit, "Execution is temporarily rate-limited. Try again shortly.");
     const { caseId } = caseIdSchema.parse(await request.json());
     const repository = getProductionCaseRepository();
     const ownerTokenHash = sessionHashFromRequest(request);
@@ -47,47 +47,67 @@ export async function POST(request: Request) {
     const previous: Record<string, Awaited<ReturnType<typeof executeFreeTool>>> = {};
     let hasFailure = false;
 
-    for (const step of nextPlan.steps) {
-      await repository.appendEvent({
-        id: randomUUID(),
-        caseId,
-        eventType: "tool.started",
-        actor: "tool",
-        status: "active",
-        message: `Running ${step.toolId}.`,
-        occurredAt: new Date().toISOString(),
-      });
+    const independentLocationTools = new Set(["resources.nearby", "weather.current"]);
+    for (let stepIndex = 0; stepIndex < nextPlan.steps.length;) {
+      const firstStep = nextPlan.steps[stepIndex];
+      const batch = [firstStep];
+      if (previous["location.lookup"]?.status === "completed" && independentLocationTools.has(firstStep.toolId)) {
+        let nextIndex = stepIndex + 1;
+        while (nextIndex < nextPlan.steps.length && independentLocationTools.has(nextPlan.steps[nextIndex].toolId)) {
+          batch.push(nextPlan.steps[nextIndex]);
+          nextIndex += 1;
+        }
+      }
 
-      const result = await executeFreeTool(step.toolId, step.input, {
-        caseId,
-        requestText: current.requestText,
-        previous,
-      });
-      previous[step.toolId] = result;
+      for (const step of batch) {
+        await repository.appendEvent({
+          id: randomUUID(),
+          caseId,
+          eventType: "tool.started",
+          actor: "tool",
+          status: "active",
+          message: `Running ${step.toolId}.`,
+          occurredAt: new Date().toISOString(),
+        });
+      }
 
-      const storedCase = await repository.getCase(caseId);
-      const storedPlan = storedCase?.plan ?? nextPlan;
-      const updatedStepStatus = result.status === "completed" ? "completed" : result.status === "blocked" ? "blocked" : "failed";
-      const updatedPlan: AgentPlan = {
-        ...storedPlan,
-        steps: storedPlan.steps.map((candidate) => candidate.id === step.id
-          ? { ...candidate, status: updatedStepStatus }
-          : candidate),
-      };
-      await repository.updatePlan(caseId, updatedPlan);
+      const results = await Promise.all(batch.map(async (step) => ({
+        step,
+        result: await executeFreeTool(step.toolId, step.input, {
+          caseId,
+          requestText: current.requestText,
+          previous,
+        }),
+      })));
 
-      if (result.evidence) await repository.saveEvidence(result.evidence);
-      if (result.status !== "completed") hasFailure = true;
+      for (const { step, result } of results) {
+        previous[step.toolId] = result;
 
-      await repository.appendEvent({
-        id: randomUUID(),
-        caseId,
-        eventType: result.status === "completed" ? "tool.completed" : `tool.${result.status}`,
-        actor: "tool",
-        status: result.status === "completed" ? "complete" : result.status === "blocked" ? "warning" : "error",
-        message: result.message,
-        occurredAt: new Date().toISOString(),
-      });
+        const storedCase = await repository.getCase(caseId);
+        const storedPlan = storedCase?.plan ?? nextPlan;
+        const updatedStepStatus = result.status === "completed" ? "completed" : result.status === "blocked" ? "blocked" : "failed";
+        const updatedPlan: AgentPlan = {
+          ...storedPlan,
+          steps: storedPlan.steps.map((candidate) => candidate.id === step.id
+            ? { ...candidate, status: updatedStepStatus }
+            : candidate),
+        };
+        await repository.updatePlan(caseId, updatedPlan);
+
+        if (result.evidence) await repository.saveEvidence(result.evidence);
+        if (result.status !== "completed") hasFailure = true;
+
+        await repository.appendEvent({
+          id: randomUUID(),
+          caseId,
+          eventType: result.status === "completed" ? "tool.completed" : `tool.${result.status}`,
+          actor: "tool",
+          status: result.status === "completed" ? "complete" : result.status === "blocked" ? "warning" : "error",
+          message: result.message,
+          occurredAt: new Date().toISOString(),
+        });
+      }
+      stepIndex += batch.length;
     }
 
     const afterTools = await repository.getCase(caseId);
@@ -196,7 +216,10 @@ export async function POST(request: Request) {
         : "Evidence review and provider report are ready.",
       occurredAt: new Date().toISOString(),
     });
-    return NextResponse.json({ case: (await repository.getCase(caseId)) ?? ready, execution: "completed" }, { headers: { "cache-control": "no-store" } });
+    return NextResponse.json({
+      case: (await repository.getCase(caseId)) ?? ready,
+      execution: hasFailure ? "partial" : "completed",
+    }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     return errorResponse(error, "AGENT_RUN_FAILED");
   }
