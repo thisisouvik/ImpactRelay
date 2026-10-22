@@ -1,5 +1,15 @@
 # Deployment and reproducibility
 
+## Current Vercel setup
+
+1. Import this Next.js repository and use the pinned Node 22 runtime line, `npm ci`, and `npm run build`.
+2. Add server-side `DATABASE_URL`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, and `RATE_LIMIT_MODE=required` in Vercel environment settings. Set `NEXT_PUBLIC_APP_URL` to the deployed HTTPS URL before building.
+3. Choose `APP_MODE=rules` for the no-model demo, or `APP_MODE=groq` with `GROQ_API_KEY` and an account-accessible `GROQ_MODEL`. See [env-credentials.md](env-credentials.md) for account/model/free-tier caveats.
+4. Keep secrets out of `NEXT_PUBLIC_*` and Git. Environment changes require restarting locally or redeploying on the host.
+5. Run the [manual smoke checklist](manual-testing-guide.md) on the deployed URL, including create/plan/run/reopen/export, a different browser session, and an isolated real-Redis quota rejection test. `/api/health` alone checks configuration, not live service connectivity.
+
+A successful local build does not prove hosted credentials, schema permissions, rate-limit persistence, or platform execution timeouts. Do not call the deployment verified until these live checks pass. Stellar/x402 sections below describe future integration work, not current runtime capabilities.
+
 ## Deployment strategy
 
 ImpactRelay has three supported modes:
@@ -22,7 +32,7 @@ Pin one Node.js LTS line consistently in:
 - CI configuration.
 - README commands.
 
-The planned baseline is Node.js 22 LTS because the official Stellar x402 repository documents Node 22+ and the current Next.js version supports it. The exact patch version should be pinned during implementation after checking the dependency requirements.
+The baseline is Node.js `22.14.0`, pinned in `.nvmrc`, Dockerfile, and CI. Use that runtime for clean-machine verification rather than assume tests on another installed Node version are equivalent.
 
 Use npm because this repository has `package-lock.json`. Do not mix npm, pnpm, Yarn, and Bun instructions in the primary runbook.
 
@@ -70,10 +80,9 @@ The eventual `.env.example` must contain placeholders only. Planned server-only 
 
 | Variable | Required in rules mode | Purpose |
 | --- | --- | --- |
-| `APP_MODE` | Yes | `rules`, `local`, or `grok` |
-| `XAI_API_KEY` | No | Server-side Grok credential |
-| `XAI_MODEL` | No | Explicit Grok model identifier |
-| `XAI_BASE_URL` | No | Grok-compatible API base URL; defaults to xAI |
+| `APP_MODE` | Optional | `rules`, `local`, `groq`, or `0g`; when set, overrides browser selection |
+| `GROQ_API_KEY` | No | Server-side Groq credential; required only in Groq mode |
+| `GROQ_MODEL` | No | Groq model ID; verify account access and billing |
 | `LOCAL_LLM_BASE_URL` | No | Local model server URL |
 | `LOCAL_LLM_MODEL` | No | Local model identifier |
 | `PUBLIC_SOURCE_ALLOWLIST` | No | Comma-separated HTTPS public-source host allow-list |
@@ -85,9 +94,9 @@ The eventual `.env.example` must contain placeholders only. Planned server-only 
 | `STELLAR_PAY_TO_ADDRESS` | No | Testnet recipient for the local service |
 | `X402_FACILITATOR_URL` | No | Facilitator endpoint |
 | `RISK_SERVICE_URL` | No | Local/hosted paid service URL |
-| `DATABASE_URL` | No | Local SQLite path or equivalent |
-| `UPSTASH_REDIS_REST_URL` | No | Upstash Redis REST endpoint |
-| `UPSTASH_REDIS_REST_TOKEN` | No | Upstash Redis REST token |
+| `DATABASE_URL` | Hosted only | Neon PostgreSQL connection string, not a SQLite path |
+| `UPSTASH_REDIS_REST_URL` | Hosted only | Upstash Redis REST endpoint |
+| `UPSTASH_REDIS_REST_TOKEN` | Hosted only | Upstash Redis REST token |
 | `RATE_LIMIT_MODE` | No | `required` in hosted production, `disabled` for local development |
 | `REDIS_CACHE_PREFIX` | No | Redis namespace prefix |
 | `OG_COMPUTE_API_KEY` | No | Server-only 0G Router `sk-` key |
@@ -162,7 +171,6 @@ Stellar Testnet is free for development and can be funded through Friendbot, but
 ## Pre-demo checklist
 
 - Start in Rules mode and verify the full local case flow.
-- Check the Grok quota before using it in a live demo.
 - Fund the dedicated testnet signer.
 - Verify the facilitator `/supported` response.
 - Run one small testnet payment before the presentation.

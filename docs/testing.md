@@ -33,7 +33,8 @@ Run the same contract suite against:
 
 - Rules planner.
 - `LocalProvider` with a stub HTTP server.
-- `GrokProvider` with a stubbed xAI response.
+- `GroqProvider` with a stubbed Groq response.
+- `GroqProvider` with a stubbed Groq response.
 
 Cover:
 
@@ -44,7 +45,7 @@ Cover:
 - Empty output.
 - Provider fallback.
 
-No test should require a live Grok key by default.
+No test should require a live Groq key by default.
 
 ### Tool adapter tests
 

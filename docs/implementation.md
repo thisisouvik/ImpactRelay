@@ -17,7 +17,7 @@ Deliverables:
 - Technical architecture and folder ownership.
 - Security and testing rules.
 - Deployment plan.
-- Empty folders with tracked placeholders.
+- Folder ownership is represented by real source files rather than empty placeholders.
 - ADRs for provider fallback and payment boundaries.
 
 Exit criteria:
@@ -100,11 +100,11 @@ Acceptance criteria:
 - Each evidence item has a source or is explicitly marked as model synthesis.
 - Stale and conflicting evidence are visible.
 
-## Phase 4 — Grok and local provider adapters
+## Phase 4 — Groq and local provider adapters
 
 Deliverables:
 
-- Add server-only Grok adapter against the xAI API.
+- Add a server-only Groq adapter against the OpenAI-compatible Groq API.
 - Use structured output validation rather than trusting free-form JSON.
 - Add timeout, retry, and provider error mapping.
 - Add local provider adapter against a locally running open-source model server.
@@ -113,14 +113,14 @@ Deliverables:
 
 Checks:
 
-- Contract tests for Grok success, invalid output, timeout, and rate limit.
+- Contract tests for Groq success, invalid output, timeout, and rate limit.
 - Local provider contract tests.
-- Live Grok smoke test only when `XAI_API_KEY` is explicitly provided.
+- Live Groq smoke test only when `GROQ_API_KEY` is explicitly provided.
 - Secret-scan review to confirm keys never reach the browser bundle.
 
 Acceptance criteria:
 
-- The project remains usable in Rules mode with no Grok key.
+- The project remains usable in Rules mode with no Groq key.
 - A malformed model response is rejected and surfaced as a recoverable error.
 - The model cannot select a tool that is not present in the registry.
 
