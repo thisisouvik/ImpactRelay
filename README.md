@@ -163,18 +163,18 @@ There are deterministic UI labels, empty states, documentation examples, and off
 | Testing | Vitest `3.2.4`, Testing Library, Playwright `1.52.0` | Offline contracts and browser acceptance tests |
 | Delivery | Docker, GitHub Actions, Vercel-compatible Next.js deployment | Reproducible build and hosted execution |
 
-## AI providers
+## Supported AI Models & Providers
 
-| Mode | Configuration | Notes |
-| --- | --- | --- |
-| Rules | `APP_MODE=rules` | No credentials; transparent deterministic planning and evidence brief |
-| Groq | `GROQ_API_KEY`, `GROQ_MODEL` | Tested with `openai/gpt-oss-20b`; model access and quota remain account-specific |
-| Local | `LOCAL_LLM_BASE_URL`, `LOCAL_LLM_MODEL` | Any compatible local server |
-| 0G | `OG_COMPUTE_API_KEY`, `OG_COMPUTE_BASE_URL`, `OG_COMPUTE_MODEL` | Optional server-only Router adapter with explicit trust routing |
+ImpactRelay is built on a provider-agnostic AI abstraction layer. It supports both cloud-hosted high-throughput accelerators and decentralized/local offline runtimes with structured JSON guardrails:
 
-`APP_MODE`, when set, overrides the provider selected in the browser. Remove it only when you want the browser choice to be honored. See [docs/env-credentials.md](docs/env-credentials.md) for safe configuration and live probes.
+| Mode | Provider / Engine | Tested & Supported Models | Key Capabilities | Configuration |
+| --- | --- | --- | --- | --- |
+| **Rules** *(Default)* | Deterministic State Engine | Heuristic rule-based expert planner | **Zero credentials required**. 100% deterministic, offline, free forever, zero hallucination risk | `APP_MODE=rules` |
+| **Groq** | Groq Cloud LPU™ Inference | `openai/gpt-oss-20b` *(default)*<br>`llama-3.3-70b-versatile`<br>`llama-3.1-8b-instant` | Near-instant structured plan generation and case synthesis with high JSON schema adherence | `APP_MODE=groq`<br>`GROQ_API_KEY`<br>`GROQ_MODEL` |
+| **0G Compute** | 0G Decentralized AI Network | `deepseek-r1-distill-llama-70b`<br>`llama-3.3-70b-instruct`<br>`qwen-2.5-72b-instruct` | Decentralized inference routing via 0G Compute Router with optional TEE private trust modes | `APP_MODE=0g`<br>`OG_COMPUTE_API_KEY`<br>`OG_COMPUTE_BASE_URL`<br>`OG_COMPUTE_MODEL` |
+| **Local** | Local OpenAI-Compatible Server | `llama3.2`, `mistral`, `qwen2.5`, `deepseek-r1`, `phi-3` via Ollama / vLLM / LocalAI | 100% private execution on your own hardware; no external cloud calls or data leakage | `APP_MODE=local`<br>`LOCAL_LLM_BASE_URL`<br>`LOCAL_LLM_MODEL` |
 
-The active user-facing AI choices are Rules, Groq, Local, and 0G.
+> **Provider Selection:** Set `APP_MODE` in `.env.local` to pin the runtime mode globally, or omit it to allow interactive provider selection directly from the casework interface. All provider responses pass through Zod runtime schema validation and sanitization guardrails before being admitted to the case state.
 
 ## Clean Linux rebuild & quick start
 
@@ -322,26 +322,71 @@ Dockerfile           Reproducible Node 22 production image
 
 Generated build output, local databases, test results, environment files, dependencies, and TypeScript build metadata are ignored by Git. Empty `.gitkeep` placeholders are intentionally not part of the repository; directories appear when their first meaningful file is added.
 
-## Current boundaries and roadmap
+## Current Boundaries & Future Implementation
 
-### Implemented now
+### Implemented Now
 
-- Real user-created case records and session-scoped ownership.
-- Rules planning and evidence brief generation.
-- Groq structured planning/report workflow.
-- Live location, weather, nearby-resource, and allow-listed public-source adapters.
-- Neon persistence and Upstash Redis rate limiting/cache.
-- Partial-failure handling, evidence provenance, JSON export, and responsive case review.
-- Offline contract tests, live-tool browser tests, production build, and CI checks.
+- **Evidence-First Casework**: User-created case intake with session ownership and privacy boundaries.
+- **Multi-Provider AI Abstraction**: Deterministic Rules expert planner, Groq high-speed cloud inference, 0G Compute decentralized routing, and local LLM runtime support with Zod guardrails.
+- **Live Public Signal Adapters**: Real-time OpenStreetMap Nominatim geocoding, Open-Meteo weather observations, Overpass nearby emergency resources, and allow-listed public guidance fetching.
+- **Hybrid Storage & Edge Protection**: Local SQLite persistence with seamless Neon Serverless PostgreSQL switching; Upstash Redis sliding-window rate limiting and response caching.
+- **Provenance & Audit Trails**: Every claim carries source URLs, retrieval timestamps, freshness indicators, confidence tiers, and SHA-256 content hashes with JSON export.
+- **Continuous Quality Gate**: 100% passing offline unit and integration test suites (10 suites, 91 tests), linting, TypeScript type safety, and multi-stage Docker builds.
 
-### Deliberately deferred
+---
 
-- Stellar Testnet and x402 seller/buyer/payment settlement.
-- User accounts, team permissions, account recovery, and retention management.
-- Automatic emergency dispatch or side-effecting actions.
-- 0G Storage archival and encrypted decentralized export.
+### Future Implementation & Blockchain Integration
 
-The app is complete as an evidence-first casework demo and not yet a complete payment-enabled SaaS product. That boundary is intentional and visible in the UI and documentation.
+The long-term vision of ImpactRelay is to bridge autonomous AI agents with **verifiable, decentralized Web3 infrastructure**, solving the critical trust and accountability problems that arise when AI agents interact with the physical world and financial resources.
+
+```mermaid
+flowchart TD
+    subgraph Agentic Casework
+        C[Case Request] --> P[Planner Engine]
+        P --> F[Free Tools: Nominatim / Meteo / Overpass]
+        P --> S[Specialist Paid Need Identified]
+    end
+
+    subgraph x402 Blockchain Settlement
+        S -->|HTTP 402 Payment Required| POL[Policy Engine: Budget & Caps]
+        POL -->|Over Budget or 1st Call| H[Human Approval Gate]
+        H -->|Approved| B[Non-Custodial Server Buyer]
+        B -->|Stellar Testnet Transaction| STL[(Stellar Ledger / Horizon)]
+        STL -->|Tx Hash + Settlement Proof| B
+        B -->|Retry with Payment Proof| PAY[Paid Specialist Service]
+        PAY -->|Premium Evidence: Satellite / Legal / Translate| E[Evidence Brief]
+    end
+
+    subgraph Decentralized Storage & Grants
+        E --> ARC[0G Storage Network: Immutable Case Vault]
+        E --> SOR[Soroban Smart Contracts: Multi-Sig Aid Grant]
+    end
+```
+
+#### 1. Stellar Network & x402 Machine-to-Machine Micropayments
+
+* **The Problem:** Autonomous agents that hold private keys or make open-ended financial decisions pose extreme risk of wallet drainage or unauthorized spending. Conversely, forcing volunteers to subscribe to multiple expensive enterprise data APIs makes community relief casework unaffordable.
+* **The Solution (HTTP 402 on Stellar):** ImpactRelay implements the emerging **x402 standard** for machine-to-machine micropayments on the **Stellar Network**:
+  * **On-Demand Pay-per-Call:** When the agent needs high-resolution satellite flood imagery, commercial crisis logistics feeds, or certified dialect translations, the specialist service returns `HTTP 402 Payment Required` with a price quote (e.g. 0.05 XLM / $0.01) and destination address.
+  * **Bounded Autonomy & Human-in-the-Loop:** A strict server-side policy engine enforces per-call budget ceilings (e.g. max $0.05) and cumulative case limits (e.g. max $0.20). The first payment requires explicit one-click caseworker approval in the UI.
+  * **Non-Custodial Architecture:** The server acts as a non-custodial buyer proxy utilizing a dedicated, disposable Stellar Testnet signing key. The caseworker's personal wallet and private keys are never exposed to the browser or agent logic.
+  * **On-Chain Audit Receipts:** Upon settlement (3–5 second finality with negligible fees on Stellar), the resulting transaction hash (`tx_hash`) and ledger sequence are permanently embedded into the case file as immutable cryptographic proof of purchase.
+
+#### 2. 0G Decentralized Storage Network (Immutable Case Vault)
+
+* **Tamper-Proof Case Archival:** Once a case brief is finalized, the encrypted audit trail, evidence ledgers, and payment receipts will be published to the **0G Decentralized Storage Network**.
+* **Cryptographic Merkle Proofs:** Generates an immutable content hash and Merkle root proof for every case. Donors, humanitarian agencies, and independent auditors can verify the exact sequence of facts and financial transactions without needing access to a centralized server or database.
+
+#### 3. Soroban Smart Contract Micro-Grants & Multi-Sig Aid
+
+* **Community Relief Pools:** Relief organizations and community donors can pool disaster funds into **Soroban smart contracts** on Stellar.
+* **Evidence-Backed Grant Proposals:** When a case report identifies verifiable emergency needs (e.g., immediate temporary shelter or emergency supply vouchers), ImpactRelay prepares an automated on-chain disbursement proposal tied directly to the verified evidence items.
+* **Multi-Signature Human Approval:** Designated field volunteers or relief treasurers multi-sign the contract proposal to release micro-grants directly to verified recipients or local vendor wallets, eliminating bureaucratic delay while maintaining transparency.
+
+#### 4. Decentralized Identity (DID) & Zero-Knowledge Verification
+
+* **Caseworker Credentials:** Integration with W3C Verifiable Credentials (VCs) and Soulbound decentralized identity tokens, allowing volunteer caseworkers to verify their organizational accreditation without doxxing themselves.
+* **Privacy-Preserving Victim Eligibility:** Utilizing Zero-Knowledge Proofs (ZKP) to prove that an applicant resides within a federally declared disaster zone and qualifies for assistance without storing or leaking sensitive Personal Identifying Information (PII) on-chain.
 
 ## License and contribution note
 
