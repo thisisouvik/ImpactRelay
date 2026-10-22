@@ -63,7 +63,8 @@ type EvidenceRow = {
   metadata_json: unknown;
 };
 
-const schemaSql = `
+const schemaStatements = [
+  `
 CREATE TABLE IF NOT EXISTS cases (
   id UUID PRIMARY KEY,
   title TEXT NOT NULL,
@@ -78,8 +79,9 @@ CREATE TABLE IF NOT EXISTS cases (
   plan_json JSONB,
   report_json JSONB,
   owner_token_hash TEXT
-);
-ALTER TABLE cases ADD COLUMN IF NOT EXISTS owner_token_hash TEXT;
+);`,
+  `ALTER TABLE cases ADD COLUMN IF NOT EXISTS owner_token_hash TEXT;`,
+  `
 CREATE TABLE IF NOT EXISTS case_events (
   id UUID PRIMARY KEY,
   case_id UUID NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
@@ -88,7 +90,8 @@ CREATE TABLE IF NOT EXISTS case_events (
   status TEXT NOT NULL,
   message TEXT NOT NULL,
   occurred_at TIMESTAMPTZ NOT NULL
-);
+);`,
+  `
 CREATE TABLE IF NOT EXISTS evidence_items (
   id UUID PRIMARY KEY,
   case_id UUID NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
@@ -101,10 +104,10 @@ CREATE TABLE IF NOT EXISTS evidence_items (
   confidence TEXT NOT NULL,
   content_hash TEXT NOT NULL,
   metadata_json JSONB
-);
-CREATE INDEX IF NOT EXISTS case_events_case_id_idx ON case_events(case_id, occurred_at);
-CREATE INDEX IF NOT EXISTS evidence_items_case_id_idx ON evidence_items(case_id, retrieved_at);
-`;
+);`,
+  `CREATE INDEX IF NOT EXISTS case_events_case_id_idx ON case_events(case_id, occurred_at);`,
+  `CREATE INDEX IF NOT EXISTS evidence_items_case_id_idx ON evidence_items(case_id, retrieved_at);`,
+] as const;
 
 function parseJson<T>(value: T | string | null): T | null {
   if (value === null || value === undefined) return null;
@@ -121,7 +124,12 @@ export class NeonCaseRepository implements CaseRepository {
   }
 
   private ensureSchema() {
-    this.initialized ??= this.sql.query(schemaSql).then(() => undefined);
+    // The Neon HTTP query helper executes one SQL statement per request. Keep
+    // schema setup explicit and sequential rather than sending a multi-statement
+    // string that only works through a session-based Postgres client.
+    this.initialized ??= (async () => {
+      for (const statement of schemaStatements) await this.sql.query(statement);
+    })();
     return this.initialized;
   }
 
