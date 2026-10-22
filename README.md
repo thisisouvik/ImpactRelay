@@ -176,54 +176,60 @@ There are deterministic UI labels, empty states, documentation examples, and off
 
 The active user-facing AI choices are Rules, Groq, Local, and 0G.
 
-## Quick start
+## Clean Linux rebuild & quick start
 
-### Requirements
+This project is fully rebuildable from scratch on a clean Linux machine with no external credentials required.
 
-- Node.js `22.14.0` from [.nvmrc](.nvmrc)
-- npm `11.x`
-- Internet access for the live public-data adapters
-- No credentials for the local Rules flow
+### 1. Requirements
+
+- **Runtime**: Node.js `22.14.0` (pinned in [.nvmrc](.nvmrc) and [.node-version](.node-version))
+- **Package Manager**: npm `>=10.0.0` (pinned in `package.json` engines)
+- **Lockfile**: [package-lock.json](package-lock.json) (install with `npm ci`)
+
+### 2. Setup
 
 ```bash
+# Clone the repository
+git clone https://github.com/thisisouvik/ImpactRelay.git
+cd ImpactRelay
+
+# Install exact dependencies from the lockfile
 npm ci
+
+# Configure local environment (default Rules mode requires zero credentials)
 cp .env.example .env.local
+```
+
+### 3. Run
+
+**Development server:**
+```bash
 npm run dev
+# Open http://localhost:3000
 ```
 
-On Windows PowerShell:
-
-```powershell
-npm ci
-Copy-Item .env.example .env.local
-npm run dev
+**Production build and run:**
+```bash
+npm run build
+npm start
+# Open http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000), then choose **Create a case** or visit `/cases/new`. Use fictional or redacted information; do not enter names, exact addresses, health information, phone numbers, credentials, or private documents.
-
-### Provider configuration
-
-The safest first run is:
-
-```env
-APP_MODE=rules
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+**Docker build and run:**
+```bash
+docker build -t impactrelay .
+docker run --rm -p 3000:3000 impactrelay
+# Open http://localhost:3000
 ```
 
-For the tested Groq path:
+### 4. Test (one command)
 
-```env
-APP_MODE=groq
-GROQ_API_KEY=your-server-side-key
-GROQ_MODEL=openai/gpt-oss-20b
+Run the full offline unit and integration test suite with one command:
+```bash
+npm test
 ```
 
-Keep provider keys server-side. Never use `NEXT_PUBLIC_` for a secret. Read [docs/env-credentials.md](docs/env-credentials.md) before configuring hosted services.
-
-## Verification commands
-
-Run the offline production gate from the repository root:
-
+To run the complete production gate (linter, TypeScript typecheck, test suite, and production build):
 ```bash
 npm run check
 ```
