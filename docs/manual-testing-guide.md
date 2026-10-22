@@ -105,7 +105,7 @@ For nearby resources, confirm the UI says availability was not verified.
 
 ## 7. Check persistence and session isolation
 
-1. Copy the case URL.
+1. After creation, open `/cases`, reopen the saved case, and copy its `/cases/<id>` URL (not the new-case form URL).
 2. Refresh the page.
 3. Open `/cases` and confirm the case appears.
 4. Reopen the case from the list.
@@ -145,20 +145,11 @@ For `/workspace`:
 3. Confirm no secret value is shown.
 4. Click **Refresh**.
 
-With local Rules mode, Grok, 0G, Neon, and Redis may correctly show as unconfigured.
+With local Rules mode, Groq, 0G, Neon, and Redis may correctly show as unconfigured. Health and Integrations show configuration presence, not successful authentication or database connectivity.
 
-## 11. Optional Grok test
+### Optional Groq test
 
-Only run this with a valid xAI key, model access, and available quota:
-
-```env
-APP_MODE=grok
-XAI_API_KEY=your-key
-XAI_MODEL=grok-4.7
-XAI_BASE_URL=https://api.x.ai/v1
-```
-
-Restart the server, create a new case, select Grok, and repeat planning and execution. Confirm structured plans/reports, tool allow-listing, evidence-ID validation, and visible provider failures. The app must not silently switch providers.
+Use `APP_MODE=groq`, `GROQ_API_KEY`, and an account-accessible `GROQ_MODEL`. Restart, then create a new case and repeat planning/execution. `llama-3.3-70b-versatile` must not be assumed available or free; see [env-credentials.md](env-credentials.md). Check authentication with `node scripts/check-integrations.mjs`; `--infer` explicitly adds a tiny quota-consuming request. A model-list check alone does not prove structured planning/report compatibility. Do not substitute models automatically after `model_not_found`.
 
 ## 12. Optional 0G test
 
@@ -214,6 +205,16 @@ Or run the offline production gate:
 npm run check
 ```
 
+Browser tests start their own Rules/SQLite server on port `3100`, use ignored `data/playwright.sqlite` and `.next-e2e` output, and override hosted DB/provider credentials. They do not reuse or stop your normal development server. The normal browser suite checks create/plan/reopen/export/session isolation and responsive pages without invoking AI or public tools.
+
+To additionally run the explicit live Nominatim/Open-Meteo browser test:
+
+```bash
+IMPACTRELAY_LIVE_TOOLS=1 npm run test:e2e
+```
+
+PowerShell: `$env:IMPACTRELAY_LIVE_TOOLS='1'; npm run test:e2e`, then remove that environment variable. This opt-in test uses no model key but does require working public internet services; an external-service failure is a real failed live check, not replaced by fixtures.
+
 ## 15. Manual test record
 
 | Check | Result | Notes |
@@ -233,5 +234,5 @@ npm run check
 | Mobile cases page | ☐ Pass / ☐ Fail | |
 | Integrations status | ☐ Pass / ☐ Fail | |
 | Hosted health endpoint | ☐ Pass / ☐ Fail / ☐ Not deployed | |
-| Grok provider | ☐ Pass / ☐ Fail / ☐ Not configured | |
+| Groq provider | ☐ Pass / ☐ Fail / ☐ Not configured | |
 | 0G provider | ☐ Pass / ☐ Fail / ☐ Not configured | |

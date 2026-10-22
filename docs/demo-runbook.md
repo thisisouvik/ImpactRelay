@@ -4,7 +4,7 @@
 
 Show a real case moving from an uncertain community request to a bounded plan, live public-data checks, an evidence record, and a transparent action brief.
 
-The primary recording path uses **Rules mode** and needs no paid model, wallet, hosted database, or API key. Grok and 0G are optional enhancements, not dependencies for the demo.
+The primary recording path uses **Rules mode** and needs no paid model, wallet, hosted database, or API key. Groq and 0G are optional enhancements, not dependencies for the demo.
 
 ## Local rehearsal
 
@@ -65,20 +65,19 @@ Find nearby shelters, hospitals, food, and public water resources near Guwahati 
     - no model claim and no fabricated resource status.
 13. Open **Integrations** to show that 0G Compute can be enabled as a server-side private/decentralized provider without changing the evidence boundary, and that secrets are not displayed in the browser.
 
-## Optional Grok recording
+## Optional Groq recording
 
 Only use this path when the account has valid credits or a free quota. Do not put the key in the browser or commit it.
 
 ```env
-APP_MODE=grok
-XAI_API_KEY=your-server-side-key
-XAI_MODEL=your-account-supported-model
-XAI_BASE_URL=https://api.x.ai/v1
+APP_MODE=groq
+GROQ_API_KEY=your-server-side-key
+GROQ_MODEL=openai/gpt-oss-20b
 ```
 
-Restart the server after changing environment variables. Select **Grok** in the new-case form. The plan and report remain constrained by the same tool allow-list and evidence-ID validation.
+Restart the server after changing environment variables. Select **Groq** in the new-case form. The plan and report remain constrained by the same tool allow-list and evidence-ID validation.
 
-Do not describe the xAI account as universally free. Availability depends on the account, model, and current provider terms.
+Do not describe the Groq account or model as universally free. Availability depends on the account, model, and current provider terms.
 
 ## Optional 0G recording
 
@@ -104,7 +103,7 @@ For a free hosted demo:
 4. Add `DATABASE_URL` for durable hosted persistence. Do not rely on SQLite for a public serverless deployment.
 5. Add Upstash Redis values and set `RATE_LIMIT_MODE=required` for a public deployment.
 6. Add only the provider keys you intend to use.
-7. Leave `APP_MODE=rules` for the most reliable no-key public demo, or configure Grok/0G server-side.
+7. Leave `APP_MODE=rules` for the most reliable no-key public demo, or configure Groq/0G server-side.
 8. Verify `/api/health`, `/cases/new`, case creation, and one full run before recording.
 9. Share the deployment URL only after checking that no secrets appear in the browser or page source.
 

@@ -28,11 +28,10 @@ No AI-provider key, Neon account, Upstash account, wallet, or payment credential
 
 | Variable | Required now? | Where to get it | Purpose |
 | --- | --- | --- | --- |
-| `APP_MODE` | Yes | Choose `rules`, `grok`, `local`, or `0g` | Selects the default planner/provider mode |
+| `APP_MODE` | Optional | Choose `rules`, `groq`, `local`, or `0g` | When set, overrides the browser choice for every new case; unset to allow selection |
 | `NEXT_PUBLIC_APP_URL` | Hosted only | Your deployed URL | Correct metadata and share links |
-| `XAI_API_KEY` | Only for Grok | [console.x.ai](https://console.x.ai/) | Server-side xAI credential |
-| `XAI_MODEL` | Only for Grok | xAI model catalog/account | Model identifier such as `grok-4.7` |
-| `XAI_BASE_URL` | Optional | Use `https://api.x.ai/v1` | xAI OpenAI-compatible API base |
+| `GROQ_API_KEY` | Only for Groq | [console.groq.com/keys](https://console.groq.com/keys) | Server-side Groq credential |
+| `GROQ_MODEL` | Optional for Groq | Groq model catalog/account | Defaults to `llama-3.3-70b-versatile`; verify account access first |
 | `LOCAL_LLM_BASE_URL` | Only for Local | Local runtime address | OpenAI-compatible local server |
 | `LOCAL_LLM_MODEL` | Only for Local | Your local runtime | Local model identifier |
 | `OG_COMPUTE_API_KEY` | Only for 0G | [pc.0g.ai](https://pc.0g.ai/) | Server-side 0G Router `sk-` credential |
@@ -45,49 +44,35 @@ No AI-provider key, Neon account, Upstash account, wallet, or payment credential
 | `RATE_LIMIT_MODE` | Hosted production | Set manually | Use `required` in production |
 | `REDIS_CACHE_PREFIX` | Optional | Set manually | Redis namespace, for example `impactrelay` |
 
-## Grok: one API key, multiple models
+## Groq Llama configuration and free-tier limits
 
-Yes. A single xAI API key can be used to call multiple models that the same xAI account is allowed to access. The model is selected by the request's `model` value; the key identifies the account and does not permanently bind the request to one model.
-
-ImpactRelay currently reads one server-side default model from:
+`llama-3.3-70b-versatile` is Meta Llama hosted by **Groq**. Groq requests use `https://api.groq.com/openai/v1`.
 
 ```env
-XAI_MODEL=grok-4.7
+APP_MODE=groq
+GROQ_API_KEY=your-server-side-groq-key
+GROQ_MODEL=llama-3.3-70b-versatile
 ```
 
-Changing `XAI_MODEL` changes the default model used by the Grok provider. For a future per-case model selector, the safe design is to maintain an explicit server-side allow-list of model IDs and validate the selected model before sending it to xAI. Do not accept arbitrary model IDs directly from the browser.
+Restart the server after changing these values. `APP_MODE=rules` forces Rules even when Groq is selected in the form; set `groq` or remove `APP_MODE` to permit browser selection. There is no automatic provider credential fallback.
 
-The current xAI model documentation lists text models including:
+**Do not assume this Llama model is free.** As checked on October 19, 2026, Groq's [model catalog](https://console.groq.com/docs/models) labels Llama 3.3 70B as Enterprise / Contact Sales, and its [Free Plan limits table](https://console.groq.com/docs/rate-limits) does not list it. An authenticated key does not guarantee access to every model. A `404 model_not_found` can mean the model is unavailable to that account. Do not silently substitute another model.
 
-- `grok-4.7`
-- `grok-4.6`
-- `grok-4.5`
-- `grok-4.3`
-- `grok-4.20-0309-reasoning`
-- `grok-4.20-0309-non-reasoning`
-- `grok-build-0.1`
+The published Free Plan table currently lists `openai/gpt-oss-20b` and `openai/gpt-oss-120b` at 30 requests/minute, 1,000 requests/day, 8,000 tokens/minute, and 200,000 tokens/day. These are provider-published reference limits, not a guarantee for your account; check the [account limits page](https://console.groq.com/settings/limits), billing plan, and model permissions before choosing a replacement. Model compatibility with the complete plan/report workflow must still be tested.
 
-Model availability, capabilities, quotas, pricing, and structured-output support are account- and API-dependent. ImpactRelay should use a model that supports the structured JSON behavior required by the provider adapter. The official source of truth is the current [xAI model catalog](https://docs.x.ai/docs/models).
+### Safe live credential checks
 
-The xAI API does not guarantee a universally free quota. Use any free credits or trial quota shown in the account dashboard, but keep Rules mode as the no-cost fallback.
+Run from the repository root. This loads environment files in Next.js order and reports only redacted results:
 
-## How to get optional Grok credentials
+```bash
+node scripts/check-integrations.mjs
+# Optional: sends one tiny inference request (may consume quota or incur charges).
+node scripts/check-integrations.mjs --infer
+```
 
-1. Open [console.x.ai](https://console.x.ai/).
-2. Create or sign in to an xAI account.
-3. Review the current account quota, credits, and billing terms.
-4. Create an API key from the API-key area.
-5. Put it only in local/server environment configuration:
+The default checks Groq authentication/model listing, Neon with a read-only `SELECT 1`, and Redis with `PING`. It does **not** prove database schema/write access, application-level plan/report output, billing, or rate-limit enforcement. Missing configuration or an unavailable model exits nonzero. `--production` selects production environment-file precedence. The optional inference probe uses a small 256-token output ceiling; it may consume quota or incur charges.
 
-   ```env
-   XAI_API_KEY=your-server-side-key
-   XAI_MODEL=grok-4.7
-   XAI_BASE_URL=https://api.x.ai/v1
-   APP_MODE=grok
-   ```
-
-6. Never use `NEXT_PUBLIC_XAI_API_KEY`.
-7. Never show the key in a screen recording.
+Do not create a second `.env.local` from the example over an already configured `.env` without checking precedence: `.env.local` overrides `.env`, including with empty values.
 
 ## How to get optional 0G Compute credentials
 
@@ -173,6 +158,16 @@ To get Upstash values:
 
 The free plan may be enough for a judge demo, but verify the current request and storage limits.
 
+### What the application limiter enforces
+
+- Case creation, planning, and execution each have a Redis sliding-window limit of 20 requests/minute per route and client identifier.
+- On Vercel, the identifier comes from the platform's dedicated `x-vercel-forwarded-for` header. Other hosts currently use one shared `anonymous` bucket rather than trust arbitrary forwarded headers; configure a trusted ingress strategy before scaling elsewhere.
+- Development `RATE_LIMIT_MODE=disabled` bypasses limiting. Production always requires Redis, even if `disabled` was accidentally set.
+- Genuine quota exhaustion returns `429 RATE_LIMITED` with `Retry-After`. Missing required Redis, authentication failures, and SDK timeouts fail closed with `503 RATE_LIMIT_UNAVAILABLE` and no raw Redis errors.
+- This is not a provider-wide token/day quota, spending cap, or protection for every route. Plan and report calls, retries, and multiple visitors can still exhaust Groq's organization-wide limits. Set account-level spend limits and monitor the provider dashboard.
+
+For a real-Redis rejection check, use an isolated test deployment with `RATE_LIMIT_MODE=required` and a unique `REDIS_CACHE_PREFIX`. Send 21 sequential JSON `{}` POSTs to `/api/agent/plan` from one client within a minute bucket: the first 20 should return validation `400`, then `429` with `Retry-After`. Invalid input prevents database writes or inference. Separately test a deliberately invalid Redis token in that isolated environment; expect a generic `503`, not raw authentication errors. Restart between configurations and let test keys expire; never flush a shared Redis database.
+
 ## Recommended deployment combinations
 
 ### Free no-key local recording
@@ -194,17 +189,17 @@ RATE_LIMIT_MODE=required
 REDIS_CACHE_PREFIX=impactrelay
 ```
 
-### Public hosted Grok demo
+### Public hosted Groq demo
 
 Use the hosted Rules values plus:
 
 ```env
-XAI_API_KEY=...
-XAI_MODEL=grok-4.7
-XAI_BASE_URL=https://api.x.ai/v1
+APP_MODE=groq
+GROQ_API_KEY=...
+GROQ_MODEL=openai/gpt-oss-20b
 ```
 
-Keep `APP_MODE=rules` if you want the site to remain usable when the Grok quota is unavailable. Select Grok only when the account has been tested.
+Keep `APP_MODE=rules` for a forced no-key demo; that setting does not automatically fall back from another provider and overrides browser selection. Unset it only if you intend to permit selection among server-configured providers.
 
 ## Deployment and demo placeholders
 
