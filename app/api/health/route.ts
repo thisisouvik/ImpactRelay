@@ -15,9 +15,10 @@ export async function GET() {
       persistence: process.env.DATABASE_URL ? "neon" : "sqlite",
       planner: configuredMode() ?? "rules",
       rateLimit,
+      rateLimitMode: process.env.RATE_LIMIT_MODE ?? "auto",
       cache,
       providers: {
-        grok: process.env.XAI_API_KEY && process.env.XAI_MODEL ? "configured" : "unconfigured",
+        groq: process.env.GROQ_API_KEY?.trim() ? "configured" : "unconfigured",
         local: process.env.LOCAL_LLM_BASE_URL && process.env.LOCAL_LLM_MODEL ? "configured" : "unconfigured",
         og: process.env.OG_COMPUTE_API_KEY && process.env.OG_COMPUTE_MODEL ? "configured" : "unconfigured",
       },
