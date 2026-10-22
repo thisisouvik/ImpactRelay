@@ -120,7 +120,7 @@ export function LandingPage() {
         <MotionReveal>
           <p className="eyebrow">Ready when you are</p>
           <h2>Start with the request. Keep the evidence.</h2>
-          <p>Use Rules mode without credentials, then opt into Grok, Local, or 0G when you are ready.</p>
+          <p>Use Rules mode without credentials, then opt into Groq, Local, or 0G when you are ready.</p>
           <Button asChild size="lg"><Link href="/cases/new">Open a new case <ArrowRight size={17} /></Link></Button>
         </MotionReveal>
       </section>
