@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { agentPlanSchema, reportDraftSchema, type AgentPlan, type CaseRecord, type ReportDraft } from "@/lib/domain/schemas";
-import { ProviderOutputError } from "@/lib/ai/types";
+import { ProviderOutputError, type ProviderId } from "@/lib/ai/types";
 import { extractLocationQuery } from "@/lib/tools/location";
 
 function extractUrls(requestText: string) {
@@ -13,7 +13,7 @@ function inputForTool(toolId: string, caseRecord: CaseRecord) {
   return { requestText: caseRecord.requestText };
 }
 
-export function normalizeProviderPlan(raw: unknown, input: { caseRecord: CaseRecord; availableToolIds: string[]; providerId: "grok" | "local" | "0g" }): AgentPlan {
+export function normalizeProviderPlan(raw: unknown, input: { caseRecord: CaseRecord; availableToolIds: string[]; providerId: ProviderId }): AgentPlan {
   const parsed = agentPlanSchema.safeParse({
     ...raw as Record<string, unknown>,
     steps: Array.isArray((raw as { steps?: unknown })?.steps)
@@ -53,7 +53,7 @@ export function normalizeProviderPlan(raw: unknown, input: { caseRecord: CaseRec
   return agentPlanSchema.parse({ ...parsed.data, steps });
 }
 
-export function normalizeProviderReport(raw: unknown, input: { evidenceIds: string[]; providerId: "grok" | "local" | "0g" }): ReportDraft {
+export function normalizeProviderReport(raw: unknown, input: { evidenceIds: string[]; providerId: ProviderId }): ReportDraft {
   const parsed = reportDraftSchema.safeParse({ ...raw as Record<string, unknown>, providerId: input.providerId });
   if (!parsed.success) throw new ProviderOutputError(`The ${input.providerId} provider returned an invalid report shape.`, parsed.error);
 
