@@ -1,132 +1,189 @@
 # ImpactRelay
 
 <p align="center">
-  <img src="public/logo.png" alt="ImpactRelay logo" width="150" />
+  <img src="public/logo.png" alt="ImpactRelay logo" width="160" />
 </p>
 
-<h2 align="center">ImpactRelay · Evidence before confidence</h2>
+<h2 align="center">Evidence before confidence</h2>
 
-ImpactRelay is an evidence-first AI caseworker for community assistance. It turns an uncertain request into a bounded plan, retrieves live public signals, separates verified facts from recommendations, and keeps a reviewable case record.
+<p align="center">
+  An evidence-first AI caseworker for community-support requests.
+</p>
 
-## The problem our AI agent solves
+<p align="center">
+  <a href="https://impact-relay-olive.vercel.app/">Live demo</a> ·
+  <a href="https://youtu.be/NPm6RePomjs">Demo video</a> ·
+  <a href="docs/README.md">Documentation</a>
+</p>
 
-Community volunteers often receive incomplete, urgent requests such as “find help near this area” or “check whether the situation is getting worse.” A normal chatbot can produce fluent but unverified answers, stale links, or confident guesses.
+ImpactRelay turns an uncertain request into a bounded plan, retrieves live public signals, records provenance, and separates retrieved facts from human verification steps. It is designed for volunteers and small organizations that need a next action they can inspect and defend—not an opaque chatbot answer.
 
-ImpactRelay addresses that problem by:
+> **Current product boundary:** the casework, live free-tool, Neon, Redis, Rules, and Groq flows are implemented and tested. Stellar/x402 payments, authenticated accounts, and side-effecting actions are intentionally not implemented yet. The application never presents those future integrations as working.
 
-- turning the user's real request into small, read-only steps;
-- querying live public sources instead of shipping scenario fixtures;
-- storing retrieval time, source URL, freshness, confidence, and content hashes;
-- keeping failed or unavailable tools visible;
-- separating source-backed facts, human verification actions, and uncertainty;
-- keeping provider keys server-side and execution bounded.
+## Live links
 
-The current product does not claim to complete payments or side effects. Stellar/x402 payment integration remains a future boundary and is not represented as working in the runtime.
+| Resource | Link |
+| --- | --- |
+| Hosted application | [impact-relay-olive.vercel.app](https://impact-relay-olive.vercel.app/) |
+| Demo video | [Watch the ImpactRelay demo on YouTube](https://youtu.be/NPm6RePomjs) |
 
-## Project direction
+## The problem
 
-The first demonstration will help a volunteer assess an urgent community-support request. The agent will:
+Community volunteers often receive incomplete requests such as “find help near this area” or “check whether the situation is getting worse.” A conventional chatbot can produce fluent but unverified answers, stale links, or confident guesses. The hard part is not only generating text; it is preserving the trail from the original request to the next defensible action.
 
-1. Understand and structure the request.
-2. Plan a small number of verifiable subtasks.
-3. Call free public-data tools.
-4. Ask for approval before a paid tool call.
-5. Pay an allow-listed x402 service with Stellar Testnet assets.
-6. Combine evidence, confidence, uncertainty, and next actions.
+## The solution
 
-The product is deliberately not an unrestricted autonomous agent. Human approval, spending limits, evidence provenance, and fail-closed behavior are part of the product—not later additions. The running application does not ship hardcoded case examples, fabricated evidence, synthetic receipts, or fake provider responses.
+ImpactRelay provides a reviewable case desk that:
 
-## Documentation first
+- accepts the user’s real request instead of shipping scenario data;
+- converts the request into bounded, read-only steps;
+- calls live public sources for location, weather, nearby mapped resources, and allow-listed guidance pages;
+- stores source URL, retrieval time, freshness, confidence, metadata, and a content hash;
+- keeps failed and unavailable tools visible instead of inventing results;
+- supports transparent Rules planning and optional server-side Groq, Local, and 0G providers;
+- persists cases locally with SQLite or durably with Neon PostgreSQL;
+- protects hosted routes with Upstash Redis rate limiting;
+- gives each browser session an HttpOnly ownership boundary and JSON export;
+- labels model output as synthesis and keeps source-backed evidence distinct from recommendations.
 
-Read the documents in this order before writing application code:
+## Example use case
 
-1. [Idea](docs/idea.md) — problem, users, value proposition, scope, and demo story.
-2. [Design](docs/design.md) — visual language, interaction model, accessibility, and distinctive UI direction.
-3. [Technical architecture](docs/technical%20architecture.md) — boundaries, data flow, integrations, and repository structure.
-4. [Implementation plan](docs/implementation.md) — phased build sequence and acceptance criteria.
-5. [Deployment plan](docs/deployment.md) — free/local environments, secrets, and testnet operations.
-6. [Security](docs/security.md) — payment, prompt-injection, privacy, and agent safety.
-7. [Testing](docs/testing.md) — offline-first verification and the eventual end-to-end checks.
-8. [Architecture decisions](docs/decisions/) — short records for choices that should not be silently reversed.
-9. [Manual testing](docs/manual-testing-guide.md) — normal-user local and hosted verification steps.
+A volunteer receives:
 
-[Documentation index](docs/README.md)
+> “Find nearby shelters and public guidance near Guwahati after heavy rain. Check the current weather and prepare a reviewable checklist. Do not claim that any resource is open or has capacity unless a source proves it.”
 
-## Current stack
+ImpactRelay can resolve the place through OpenStreetMap, retrieve current weather from Open-Meteo, attempt a nearby-resource search through Overpass, and produce a report that distinguishes:
 
-- Node.js `22.14.0` pinned in `.nvmrc`
+1. **Retrieved signals** — what the live adapters returned.
+2. **Human verification** — what a volunteer should confirm locally.
+3. **Uncertainty** — unavailable services, unverified capacity, stale information, or missing context.
+
+The example above is documentation only. Runtime cases come from the current user’s input and live adapter responses.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    U[Volunteer browser] --> UI[Next.js App Router UI]
+    UI --> API[Next.js route handlers]
+    API --> S[Session ownership + Zod validation]
+    S --> RL[Upstash Redis rate limit/cache]
+    S --> DB[(Neon PostgreSQL<br/>or local SQLite)]
+    API --> P[Provider selection]
+    P --> R[Rules planner]
+    P --> G[Groq / Local / 0G adapter]
+    API --> T[Free-tool registry]
+    T --> N[Nominatim]
+    T --> W[Open-Meteo]
+    T --> O[Overpass]
+    T --> PS[Allow-listed public HTTPS sources]
+    G --> V[Structured-output guardrails]
+    T --> E[Validated evidence records]
+    V --> M[Provider synthesis]
+    E --> BR[Rules evidence brief]
+    M --> REP[Evidence-linked report]
+    BR --> DB
+    REP --> DB
+    DB --> UI
+```
+
+### Runtime data path
+
+```mermaid
+sequenceDiagram
+    participant Volunteer
+    participant Browser as Next.js UI
+    participant API as Case API
+    participant Store as Neon or SQLite
+    participant Tools as Live public tools
+    participant Model as Optional provider
+
+    Volunteer->>Browser: Submit a real, redacted request
+    Browser->>API: Create case with session cookie
+    API->>Store: Persist request and lifecycle event
+    Browser->>API: Request a bounded plan
+    API->>Model: Plan only when a provider mode is selected
+    API->>Store: Persist validated plan
+    Volunteer->>Browser: Run available steps
+    Browser->>API: Execute read-only tools
+    API->>Tools: Fetch live source data
+    Tools-->>API: Validated result or visible failure
+    API->>Store: Persist evidence and audit events
+    API->>Model: Synthesize only from stored evidence when configured
+    API->>Store: Persist Rules brief or provider report
+    Store-->>Browser: Case, evidence, uncertainty, and next actions
+```
+
+### Normal-user workflow
+
+```mermaid
+flowchart TD
+    A[Open the live app] --> B[Create a case]
+    B --> C[Review the generated plan]
+    C --> D{Run available steps?}
+    D -->|No| C
+    D -->|Yes| E[Resolve location]
+    E --> F[Fetch independent weather and resource signals]
+    F --> G{Any valid evidence?}
+    G -->|No| H[Blocked safely with failures visible]
+    G -->|Yes| I[Store provenance and uncertainty]
+    I --> J[Rules brief or validated provider synthesis]
+    J --> K[Review, reopen, or export JSON]
+```
+
+## What is live and what is deterministic?
+
+| Capability | Runtime behavior |
+| --- | --- |
+| Case input | Real user input, validated and persisted |
+| Rules mode | Deterministic planner/report built from the current request and live evidence; no fake LLM response |
+| Groq/Local/0G modes | Real OpenAI-compatible provider request with structured-output validation; failures are surfaced |
+| Location | Live OpenStreetMap Nominatim request |
+| Weather | Live Open-Meteo request using resolved coordinates |
+| Nearby resources | Live OpenStreetMap Overpass request; availability is never claimed as verified |
+| Public guidance | Live HTTPS request to a configured host allow-list |
+| Database | SQLite locally; Neon when `DATABASE_URL` is configured |
+| Rate limiting/cache | Upstash Redis when configured; production requires it |
+| Payments | Not implemented; approval route intentionally reports that no payment target exists |
+
+There are deterministic UI labels, empty states, documentation examples, and offline test fixtures. They are not presented as live case evidence. The application runtime does not import test fixtures or fabricate provider/source results.
+
+## Technology stack
+
+| Layer | Technology | Role |
+| --- | --- | --- |
+| Runtime | Node.js `22.14.0`, npm `11.x` | Pinned, reproducible JavaScript runtime |
+| Web framework | Next.js `16.4.2` App Router | Pages, route handlers, server/client boundaries |
+| UI | React `19.3.0`, Tailwind CSS `4.3.3` | Responsive case desk and landing page |
+| Interaction | Framer Motion `12.43.0`, Lucide React | Accessible motion and interface icons |
+| Validation | TypeScript `5.9.3`, Zod `4.6.7` | Domain contracts and provider/tool guardrails |
+| Local persistence | Node SQLite / `data/impactrelay.sqlite` | Portable development storage |
+| Hosted persistence | Neon Serverless `1.0.1` | Durable PostgreSQL case storage |
+| Hosted infrastructure | Upstash Redis `1.34.4`, Ratelimit `2.0.7` | Cache and sliding-window route protection |
+| Testing | Vitest `3.2.4`, Testing Library, Playwright `1.52.0` | Offline contracts and browser acceptance tests |
+| Delivery | Docker, GitHub Actions, Vercel-compatible Next.js deployment | Reproducible build and hosted execution |
+
+## AI providers
+
+| Mode | Configuration | Notes |
+| --- | --- | --- |
+| Rules | `APP_MODE=rules` | No credentials; transparent deterministic planning and evidence brief |
+| Groq | `GROQ_API_KEY`, `GROQ_MODEL` | Tested with `openai/gpt-oss-20b`; model access and quota remain account-specific |
+| Local | `LOCAL_LLM_BASE_URL`, `LOCAL_LLM_MODEL` | Any compatible local server |
+| 0G | `OG_COMPUTE_API_KEY`, `OG_COMPUTE_BASE_URL`, `OG_COMPUTE_MODEL` | Optional server-only Router adapter with explicit trust routing |
+
+`APP_MODE`, when set, overrides the provider selected in the browser. Remove it only when you want the browser choice to be honored. See [docs/env-credentials.md](docs/env-credentials.md) for safe configuration and live probes.
+
+The active user-facing AI choices are Rules, Groq, Local, and 0G.
+
+## Quick start
+
+### Requirements
+
+- Node.js `22.14.0` from [.nvmrc](.nvmrc)
 - npm `11.x`
-- Next.js `16.4.2` App Router
-- React `19.3.0`
-- TypeScript `5.9.3`
-- Tailwind CSS `4.3.3`
-- Zod `4.6.7`
-- Framer Motion `12.43.0`
-- Lucide React `0.511.0`
-- next-themes `0.4.4`
-- Vitest `3.2.4`
-- Playwright `1.52.0`
-- Neon Serverless driver `1.0.1`
-- Upstash Ratelimit `2.0.7`
-- Upstash Redis `1.34.4`
-- npm with the committed `package-lock.json`
-
-## AI agent tools
-
-The runtime tool registry currently supports these real, bounded tools:
-
-| Tool ID | Live source | What it does |
-| --- | --- | --- |
-| `location.lookup` | OpenStreetMap Nominatim | Resolves a place into coordinates and a display name |
-| `weather.current` | Open-Meteo | Retrieves current weather after location resolution |
-| `resources.nearby` | OpenStreetMap Overpass | Attempts to find nearby mapped shelters, hospitals, food, water, and social resources |
-| `public.source.read` | HTTPS sources from the configured allow-list | Reads a supplied public guidance page with redirect and size checks |
-
-Tool results are validated before becoming evidence. A source outage is shown as a failed or partial step; it is never converted into fake data.
-
-## Supported AI providers and models
-
-| Provider | Supported model configuration | Status |
-| --- | --- | --- |
-| Rules | Built-in deterministic planner and evidence brief | Available with no credentials |
-| Local | Any OpenAI-compatible local model configured with `LOCAL_LLM_MODEL` | Optional; model depends on the local runtime |
-| Grok / xAI | `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-4.3`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, `grok-build-0.1` | Optional; account access and structured-output capability must be checked |
-| 0G Compute Router | A model returned by the live 0G `/v1/models` catalog | Optional; model and trust-tier availability changes over time |
-
-One xAI API key can be used with multiple models permitted for the same account. ImpactRelay currently selects one server-side default via `XAI_MODEL`; the browser cannot choose arbitrary model IDs. See [docs/env-credentials.md](docs/env-credentials.md) for credential setup and official model references.
-
-Model availability, quotas, pricing, and free credits are controlled by each provider and can change. Rules mode remains the no-key fallback.
-
-Planned integrations are intentionally provider-abstracted:
-
-- Grok through the server-side xAI API when a valid key or hackathon credit is available.
-- An open-source local model runtime for no-key development.
-- A transparent rules planner for the current local workflow.
-- A server-only Grok adapter and OpenAI-compatible local provider with structured output validation.
-- Stellar Testnet and x402 for bounded machine-to-machine payments.
-- SQLite for a portable local case and receipt store.
-
-The xAI API may not provide a universally free quota. The project must remain runnable without xAI credits; Grok is an optional real provider, not a single point of failure. When a real provider or tool is unavailable, the application must show a safe boundary instead of fabricating a result.
-
-## Today’s working demo
-
-The no-credential Rules path now supports real location resolution, nearby mapped resource discovery, current weather context, provenance metadata, and a transparent evidence brief. Follow [docs/demo-runbook.md](docs/demo-runbook.md) to rehearse and record the flow. The current 0G boundary and official documentation links are in [docs/0g-implementation.md](docs/0g-implementation.md).
-
-## Deployment and demo links
-
-Add these after the hosted deployment and recording are complete:
-
-- **Live deployment:** `[ADD DEPLOYED URL]`
-- **Demo video:** `[ADD DEMO VIDEO URL]`
-
-## Social media posts
-
-Add product-launch and demo posts here later:
-
-- **X / Twitter:** `[ADD POST URL]`
-## Existing checks
-
-Run from the repository root:
+- Internet access for the live public-data adapters
+- No credentials for the local Rules flow
 
 ```bash
 npm ci
@@ -134,27 +191,152 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open `http://localhost:3000` and use `/cases/new` for the real case workflow.
+On Windows PowerShell:
 
-The lint, typecheck, test, and build commands are now configured. The current build uses a local/system font strategy and the first case workflow is covered by unit and SQLite integration tests.
+```powershell
+npm ci
+Copy-Item .env.example .env.local
+npm run dev
+```
 
-The repository also includes a pinned Node 22 Docker build and GitHub Actions workflow:
+Open [http://localhost:3000](http://localhost:3000), then choose **Create a case** or visit `/cases/new`. Use fictional or redacted information; do not enter names, exact addresses, health information, phone numbers, credentials, or private documents.
+
+### Provider configuration
+
+The safest first run is:
+
+```env
+APP_MODE=rules
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+For the tested Groq path:
+
+```env
+APP_MODE=groq
+GROQ_API_KEY=your-server-side-key
+GROQ_MODEL=openai/gpt-oss-20b
+```
+
+Keep provider keys server-side. Never use `NEXT_PUBLIC_` for a secret. Read [docs/env-credentials.md](docs/env-credentials.md) before configuring hosted services.
+
+## Verification commands
+
+Run the offline production gate from the repository root:
+
+```bash
+npm run check
+```
+
+The gate runs ESLint, TypeScript, the offline Vitest suite, and the Next.js production build. Browser acceptance tests run separately:
+
+```bash
+npm run test:e2e
+```
+
+The normal browser suite uses an isolated Rules/SQLite server and does not consume provider quota. To opt into the real Nominatim/Open-Meteo browser test:
+
+```bash
+IMPACTRELAY_LIVE_TOOLS=1 npm run test:e2e
+```
+
+PowerShell:
+
+```powershell
+$env:IMPACTRELAY_LIVE_TOOLS = "1"
+npm run test:e2e
+Remove-Item Env:IMPACTRELAY_LIVE_TOOLS
+```
+
+For bounded live credential checks, use:
+
+```bash
+node scripts/check-integrations.mjs
+node scripts/check-integrations.mjs --infer
+```
+
+The script prints only safe status, model availability, redacted provider error codes, and quota headers. It can check Groq, Neon `SELECT 1`, and Redis `PING`; it does not replace the full application smoke test.
+
+## Hosted deployment
+
+The deployed demo is at [impact-relay-olive.vercel.app](https://impact-relay-olive.vercel.app/). A production deployment should configure:
+
+```env
+APP_MODE=rules
+NEXT_PUBLIC_APP_URL=https://your-domain.example
+DATABASE_URL=your-neon-connection-string
+UPSTASH_REDIS_REST_URL=https://your-upstash-endpoint
+UPSTASH_REDIS_REST_TOKEN=your-upstash-token
+RATE_LIMIT_MODE=required
+REDIS_CACHE_PREFIX=impactrelay
+```
+
+Production rejects the SQLite fallback and requires Redis-backed request protection. Add `GROQ_API_KEY` and `GROQ_MODEL` only when the account and model have been tested. See [docs/deployment.md](docs/deployment.md) for the Vercel checklist and [docs/manual-testing-guide.md](docs/manual-testing-guide.md) for the normal-user hosted smoke test.
+
+The repository also includes a pinned Node 22 Dockerfile and GitHub Actions workflow:
 
 ```bash
 docker build -t impactrelay .
 docker run --rm -p 3000:3000 --env-file .env.local impactrelay
 ```
 
-Run the full offline production gate with:
+## Documentation directory
 
-```bash
-npm run check
+The [`docs/`](docs/README.md) directory is the product and engineering source of truth. It keeps scope, safety boundaries, deployment instructions, and decisions out of scattered code comments.
+
+| Document | Purpose |
+| --- | --- |
+| [docs/README.md](docs/README.md) | Documentation index, rules, and current phase |
+| [docs/idea.md](docs/idea.md) | Users, problem, product principles, and MVP boundary |
+| [docs/design.md](docs/design.md) | Visual language, interaction model, and accessibility direction |
+| [docs/technical architecture.md](docs/technical%20architecture.md) | System boundaries, data flow, and repository ownership |
+| [docs/implementation.md](docs/implementation.md) | Implementation phases, acceptance criteria, and definition of done |
+| [docs/deployment.md](docs/deployment.md) | Runtime pinning, Docker, hosted configuration, and deployment checks |
+| [docs/env-credentials.md](docs/env-credentials.md) | Provider, Neon, Redis, and safe credential setup |
+| [docs/manual-testing-guide.md](docs/manual-testing-guide.md) | Normal-user desktop, mobile, hosted, and live-tool checklist |
+| [docs/testing.md](docs/testing.md) | Unit, integration, provider, tool, and browser test strategy |
+| [docs/security.md](docs/security.md) | Privacy, prompt injection, session ownership, and payment boundaries |
+| [docs/demo-runbook.md](docs/demo-runbook.md) | Reproducible recording and judging flow |
+| [docs/0g-implementation.md](docs/0g-implementation.md) | Implemented 0G Compute boundary and deferred 0G Storage work |
+| [docs/decisions/](docs/decisions/) | Architecture decision records that should not be silently reversed |
+
+## Repository layout
+
+```text
+app/                 Next.js pages, route handlers, and global styles
+components/          UI, landing, case, evidence, and dashboard components
+lib/                 Domain schemas, repositories, providers, tools, security, and infrastructure
+scripts/             Explicit live integration diagnostics
+services/            Reserved boundaries for future paid specialist services
+tests/               Offline unit/integration tests and Playwright acceptance tests
+docs/                Product, architecture, security, deployment, and testing documentation
+public/              Logo and browser assets
+Dockerfile           Reproducible Node 22 production image
 ```
 
-Run `npm ci` on Node.js 22 before using the test and browser commands. The application currently uses local SQLite and the rules planner; external integrations will be added only with real adapters and their own verification.
+Generated build output, local databases, test results, environment files, dependencies, and TypeScript build metadata are ignored by Git. Empty `.gitkeep` placeholders are intentionally not part of the repository; directories appear when their first meaningful file is added.
 
-For hosted production, configure `DATABASE_URL` for Neon and the two Upstash Redis values before deploying. Production rejects the SQLite fallback and requires rate limiting. See [docs/env-credentials.md](docs/env-credentials.md) and [docs/deployment.md](docs/deployment.md).
+## Current boundaries and roadmap
 
-## Repository status
+### Implemented now
 
-The planned structure is tracked now with placeholders so the implementation can start from an explicit boundary. Empty folders contain `.gitkeep` files until their first source file is added. See the [technical architecture](docs/technical%20architecture.md) for the intended ownership of each directory.
+- Real user-created case records and session-scoped ownership.
+- Rules planning and evidence brief generation.
+- Groq structured planning/report workflow.
+- Live location, weather, nearby-resource, and allow-listed public-source adapters.
+- Neon persistence and Upstash Redis rate limiting/cache.
+- Partial-failure handling, evidence provenance, JSON export, and responsive case review.
+- Offline contract tests, live-tool browser tests, production build, and CI checks.
+
+### Deliberately deferred
+
+- Stellar Testnet and x402 seller/buyer/payment settlement.
+- User accounts, team permissions, account recovery, and retention management.
+- Automatic emergency dispatch or side-effecting actions.
+- 0G Storage archival and encrypted decentralized export.
+
+The app is complete as an evidence-first casework demo and not yet a complete payment-enabled SaaS product. That boundary is intentional and visible in the UI and documentation.
+
+## License and contribution note
+
+This repository is a hackathon project. Keep changes focused, preserve the no-fabrication boundary, update the relevant documentation, and run `npm run check` before handing off work. Do not commit `.env`, local database files, provider keys, private data, or generated build artifacts.

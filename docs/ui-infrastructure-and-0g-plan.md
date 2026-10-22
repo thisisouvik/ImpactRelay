@@ -12,7 +12,7 @@ ImpactRelay will use:
 - SQLite for local development.
 - Neon PostgreSQL for Vercel persistence.
 - Upstash Redis for rate limits and safe, short-lived cache entries.
-- Rules, Grok, and Local providers unchanged.
+- Rules, Groq, and Local providers unchanged.
 - 0G Compute Router as an optional server-side AI provider.
 - 0G Storage as an optional encrypted archive layer, not the operational database.
 

@@ -5,13 +5,13 @@
 
 ## Context
 
-The product should use Grok for a strong hackathon demonstration, but API availability, quotas, and credits may change. A student project cannot depend on a paid provider for local development, tests, or judging fallback.
+The product may use a hosted model for a stronger demonstration, but API availability, quotas, and credits may change. A student project cannot depend on a paid provider for local development, tests, or judging fallback.
 
 ## Decision
 
 Define a provider-neutral `LlmProvider` interface with three implementations:
 
-1. Grok API provider.
+1. Hosted provider adapter.
 2. Local open-source model provider.
 3. Deterministic mock provider.
 
@@ -30,10 +30,10 @@ Provider selection is server-side and recorded in the case event history.
 
 - Structured output behavior must be tested across providers.
 - Prompt and capability differences require adapter-specific instructions.
-- A local model may produce lower-quality plans than Grok.
+- A local model may produce lower-quality plans than a hosted provider.
 
 ## Rejected alternatives
 
-- Hard-coding Grok calls into route handlers: too difficult to test and replace.
+- Hard-coding provider calls into route handlers: too difficult to test and replace.
 - Building a model into the repository: too large and hardware-dependent.
 - Using a second paid provider as the only fallback: violates the free/open-source requirement.

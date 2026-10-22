@@ -69,7 +69,7 @@ This is a real machine-to-machine payment use case, not a wallet badge added to 
 2. **Bounded autonomy.** The model can propose; policy code decides what may execute.
 3. **Pay only for marginal value.** Free sources are used first. Paid calls must have a reason, price, and budget check.
 4. **Human judgment at the edge.** The product supports people; it does not pretend to replace local knowledge or emergency authorities.
-5. **Free to build.** Grok is optional, transparent rules planning works locally, and real providers can be added without making paid credits a requirement for case creation.
+5. **Free to build.** Groq is optional, transparent rules planning works locally, and real providers can be added without making paid credits a requirement for case creation.
 6. **Portable records.** A case can be exported as JSON/Markdown instead of being trapped in a hosted service.
 
 ## MVP promise
@@ -82,7 +82,7 @@ In a five-minute demo, a reviewer can submit one case, inspect the plan, approve
 
 - One case at a time.
 - One focused community-assistance scenario.
-- Rules planner with Grok and local provider adapters added behind explicit configuration.
+- Rules planner with Groq and local provider adapters added behind explicit configuration.
 - Free location, weather, and public-information tools.
 - One x402-protected specialist service.
 - Stellar Testnet only.

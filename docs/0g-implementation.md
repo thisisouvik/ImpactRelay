@@ -7,14 +7,14 @@ ImpactRelay uses 0G as an optional, server-only intelligence layer. The applicat
 ```text
 Browser
   → ImpactRelay case API
-    → provider adapter (Rules, Grok, Local, or 0G)
+    → provider adapter (Rules, Groq, Local, or 0G)
       → structured plan guardrails
         → real free-tool evidence
           → evidence-linked action brief
             → case record
 ```
 
-The browser never receives a 0G or Grok secret. A model response cannot create evidence by itself: it may only reference evidence IDs already returned by a real adapter.
+The browser never receives a 0G or provider secret. A model response cannot create evidence by itself: it may only reference evidence IDs already returned by a real adapter.
 
 ## Current 0G Compute integration
 
@@ -93,9 +93,9 @@ The demo does not depend on a paid model or 0G credentials:
 
 This path is the reliable fallback for a recorded demo because it needs no API key, wallet, hosted database, or paid service.
 
-## Optional Grok and 0G modes
+## Optional Groq and 0G modes
 
-If a valid server-side Grok key is available, set `APP_MODE=grok`, configure `XAI_MODEL`, and select Grok in the case form. If a funded 0G Router account and supported model are available, set `APP_MODE=0g`, configure the 0G values above, and select 0G.
+If a valid server-side Groq key and account-accessible model are available, set `APP_MODE=groq`, configure the `GROQ_*` values, and select Groq in the case form. If a funded 0G Router account and supported model are available, set `APP_MODE=0g`, configure the 0G values above, and select 0G.
 
 Both provider modes use the same guardrails:
 

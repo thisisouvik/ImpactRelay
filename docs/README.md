@@ -11,7 +11,7 @@ This directory is the source of truth for the product definition and the impleme
 | 1 | [idea.md](idea.md) | Who the product serves, what it does, and what the MVP proves |
 | 2 | [design.md](design.md) | How the product should feel and how the main case flow behaves |
 | 3 | [technical architecture.md](technical%20architecture.md) | System boundaries, data flow, integrations, and folder ownership |
-| 4 | [implementation.md](implementation.md) | Build phases, task order, acceptance criteria, and definition of done |
+| 4 | [implementation.md](implementation.md) | Build phases, acceptance criteria, and definition of done |
 | 5 | [deployment.md](deployment.md) | Reproducible local deployment, optional free hosting, and testnet operations |
 | 6 | [0g-implementation.md](0g-implementation.md) | Current 0G Compute boundary, free demo path, and next integration steps |
 | 7 | [security.md](security.md) | Secret handling, payment controls, privacy, and agent safety |
@@ -33,7 +33,7 @@ The normal-user manual test checklist is in [manual-testing-guide.md](manual-tes
 
 ## Current phase
 
-**Evidence-first agent demo — real free tools, transparent Rules reports, and optional 0G Compute.** The repository contains a real user-input case workflow, SQLite/Neon persistence, location/weather/public-source adapters, nearby resource discovery, server-only provider guardrails, and a no-credential demo path. See [0g-implementation.md](0g-implementation.md) for the current 0G boundary.
+**Evidence-first agent demo — real free tools, transparent Rules reports, and optional Groq/0G providers.** The repository contains a real user-input case workflow, SQLite/Neon persistence, location/weather/public-source adapters, nearby resource discovery, server-only provider guardrails, and a no-credential demo path. See [0g-implementation.md](0g-implementation.md) for the current 0G boundary.
 
 ## Baseline checks
 
@@ -43,7 +43,7 @@ The normal-user manual test checklist is in [manual-testing-guide.md](manual-tes
 
 ## External references
 
-- [xAI API overview](https://docs.x.ai/docs/overview)
+- [Groq API documentation](https://console.groq.com/docs)
 - [x402 documentation](https://docs.x402.org/)
 - [Official Stellar x402 repository](https://github.com/stellar/x402-stellar)
 - [Stellar networks](https://developers.stellar.org/docs/networks.md)
