@@ -110,7 +110,7 @@ export function Workspace({ initialCaseId, forceNew = false }: { initialCaseId?:
       window.localStorage.setItem("impactrelay.currentCaseId", payload.case.id);
       const plannedCase = await preparePlan(payload.case.id);
       setCaseRecord(plannedCase);
-      setNotice("Case stored in local SQLite. The plan was generated from your request.");
+      setNotice("Case saved. The plan was generated from your request.");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "The case could not be created.");
     } finally {
@@ -137,6 +137,7 @@ export function Workspace({ initialCaseId, forceNew = false }: { initialCaseId?:
     if (!caseRecord) return;
     setIsSubmitting(true);
     setError(null);
+    setNotice("Running live public-data tools. A slow map service can take up to about 30 seconds; failed optional tools remain visible and do not create fake evidence.");
     try {
       const response = await fetch("/api/agent/run", {
         method: "POST",
@@ -152,9 +153,11 @@ export function Workspace({ initialCaseId, forceNew = false }: { initialCaseId?:
         throw new Error(payload.error?.message ?? "The case could not be run.");
       }
       setCaseRecord(payload.case);
-      setNotice(payload.execution === "completed"
-        ? "Free tools completed. Evidence was validated and the report was stored when a real provider was configured."
-        : "Execution stopped safely. Failed provider or tool output was not promoted to evidence.");
+       setNotice(payload.execution === "completed"
+         ? "Live tools completed. Evidence was validated and the report was stored when a real provider was configured."
+         : payload.execution === "partial"
+           ? "Live tools completed partially. Valid evidence is shown, and unavailable tools remain marked as uncertain."
+           : "Execution stopped safely. Failed provider or tool output was not promoted to evidence.");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "The case could not be run.");
     } finally {
@@ -177,7 +180,7 @@ export function Workspace({ initialCaseId, forceNew = false }: { initialCaseId?:
         throw new Error(payload.error?.message ?? "The case could not be paused.");
       }
       setCaseRecord(payload.case);
-      setNotice("Case paused. Its request and event history remain stored locally.");
+      setNotice("Case paused. Its request and event history remain stored.");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "The case could not be paused.");
     } finally {
@@ -242,7 +245,7 @@ export function Workspace({ initialCaseId, forceNew = false }: { initialCaseId?:
         <div className="rail-footer">
           <div className="rail-status-line">
              <StatusBadge label="Local-first" tone="field" />
-             <span className="mono-text">live</span>
+             <span className="mono-text">ready</span>
           </div>
           <p className="rail-footnote">Do not enter real sensitive personal data in this development build.</p>
         </div>
@@ -259,7 +262,7 @@ export function Workspace({ initialCaseId, forceNew = false }: { initialCaseId?:
             <div className="new-case-intro">
               <p className="eyebrow">Start a real case record</p>
               <h1>Turn a messy request into a reviewable plan.</h1>
-              <p>Enter the request you actually want to assess. ImpactRelay stores it locally, records the lifecycle, and derives a bounded plan without inventing source results.</p>
+               <p>Enter the request you actually want to assess. ImpactRelay stores it in the configured database, records the lifecycle, and derives a bounded plan without inventing source results.</p>
             </div>
 
             <form className="case-form" onSubmit={handleCreateCase}>
@@ -293,18 +296,18 @@ export function Workspace({ initialCaseId, forceNew = false }: { initialCaseId?:
 
               <div className="form-label-row">
                 <label htmlFor="case-mode">Planning provider</label>
-                <span className="field-hint">Server-side selection</span>
+                <span className="field-hint">APP_MODE can override this selection</span>
               </div>
               <select id="case-mode" value={mode} onChange={(event) => setMode(event.target.value as CaseMode)}>
                 <option value="rules">Rules planner · no external credentials</option>
                 <option value="local">Local model · OpenAI-compatible server</option>
-                <option value="grok">Grok · xAI API</option>
+                <option value="groq">Groq · Groq API</option>
                 <option value="0g">0G Compute · decentralized Router</option>
               </select>
 
               <div className="form-safety-note">
                 <span aria-hidden="true">◎</span>
-                <span>Use fictional or redacted information while this local development flow is being built.</span>
+                 <span>Use fictional or redacted information. Do not enter sensitive personal data in this demo.</span>
               </div>
 
               {error ? <div className="form-error" role="alert">{error}</div> : null}
@@ -314,13 +317,13 @@ export function Workspace({ initialCaseId, forceNew = false }: { initialCaseId?:
                   {isSubmitting ? "Saving case…" : "Save case and prepare plan"}
                   <span aria-hidden="true">→</span>
                 </button>
-                <span className="action-caption">Persists to local SQLite · rules planner</span>
+                <span className="action-caption">Persists to configured database · server-selected provider</span>
               </div>
             </form>
 
             <div className="integrity-note">
-              <strong>What this phase does not do</strong>
-              <span>It does not fabricate evidence, call external tools, send payments, or claim an AI provider result. Those capabilities will be added only with real adapters.</span>
+              <strong>Safety boundary</strong>
+              <span>No payment side effects occur in this phase. Evidence and provider reports appear only after real adapters or providers return validated results.</span>
             </div>
           </main>
         ) : (
@@ -334,7 +337,7 @@ export function Workspace({ initialCaseId, forceNew = false }: { initialCaseId?:
                 </div>
                 <div className="header-actions">
                   <StatusBadge label={`${caseRecord.mode} mode`} tone="signal" />
-                  <StatusBadge label="SQLite" tone="field" />
+                  <StatusBadge label="Persisted" tone="field" />
                   <button className="quiet-button" type="button" onClick={handlePause} disabled={isSubmitting}>
                     <span aria-hidden="true">Ⅱ</span>
                     Pause
@@ -398,7 +401,7 @@ export function Workspace({ initialCaseId, forceNew = false }: { initialCaseId?:
                         {caseRecord.plan.constraints.map((constraint) => <span key={constraint}>· {constraint}</span>)}
                       </div>
                       <button className="primary-button" type="button" onClick={handleRun} disabled={isSubmitting || caseRecord.status !== "plan-ready"}>
-                        {caseRecord.status === "blocked" ? "Execution blocked safely" : isSubmitting ? "Starting…" : "Run available steps"}
+                         {caseRecord.status === "blocked" ? "Execution blocked safely" : isSubmitting ? "Running live steps…" : "Run available steps"}
                         <span aria-hidden="true">→</span>
                       </button>
                     </>
@@ -408,7 +411,7 @@ export function Workspace({ initialCaseId, forceNew = false }: { initialCaseId?:
                 </section>
 
                 <section className="event-record" aria-labelledby="event-title">
-                  <SectionHeading eyebrow="Audit trail" title="Case events" description="Lifecycle events are persisted in SQLite; no hidden reasoning is displayed." action={<span className="stream-count">{caseRecord.events.length} events</span>} />
+                   <SectionHeading eyebrow="Audit trail" title="Case events" description="Lifecycle events are persisted with this case; no hidden reasoning is displayed." action={<span className="stream-count">{caseRecord.events.length} events</span>} />
                   <div className="real-event-list">
                     {caseRecord.events.map((event) => (
                       <article className="real-event" key={event.id}>
@@ -428,8 +431,8 @@ export function Workspace({ initialCaseId, forceNew = false }: { initialCaseId?:
                   <section className="report-record-panel" aria-labelledby="report-title">
                      <SectionHeading eyebrow={caseRecord.report.providerId === "rules" ? "Transparent evidence brief" : "Provider synthesis"} title="Action brief" description={caseRecord.report.providerId === "rules" ? "Facts, human verification steps, and uncertainty are derived from validated sources without model claims." : "This report is generated only from the stored evidence IDs below."} action={<StatusBadge label={caseRecord.report.providerId === "rules" ? "Rules analysis" : `${caseRecord.report.providerId} provider`} tone="signal" />} />
                     <p className="report-summary">{caseRecord.report.summary}</p>
-                    <div className="report-block">
-                      <h3>What we know</h3>
+                     <div className="report-block">
+                       <h3>{caseRecord.report.providerId === "rules" ? "What we know" : "Provider synthesis"}</h3>
                       {caseRecord.report.known.map((item) => <div className="report-record-item" key={item.text}><strong>{item.text}</strong><small>Evidence · {item.evidenceIds.length ? item.evidenceIds.join(", ") : "Not cited"}</small></div>)}
                     </div>
                     <div className="report-block">
@@ -458,8 +461,8 @@ export function Workspace({ initialCaseId, forceNew = false }: { initialCaseId?:
                 </div>
                 <div className="review-card review-card--quiet">
                   <p className="eyebrow">Persistence</p>
-                  <h2>Local SQLite</h2>
-                  <p>Case, plan, and event records are written to the local database path configured by `IMPACTRELAY_DB_PATH`.</p>
+                  <h2>Configured database</h2>
+                  <p>Case, plan, and event records use SQLite locally or Neon when configured. Check Integrations for the active persistence configuration.</p>
                 </div>
               </aside>
             </div>
