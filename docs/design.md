@@ -67,7 +67,7 @@ The left rail is a compact navigation and case switcher:
 - Brand mark and `ImpactRelay` name.
 - `New case` primary action.
 - Recent case list with status markers.
-- Mode indicator: `Rules`, `Local`, or `Grok`.
+- Mode indicator: `Rules`, `Groq`, `Local`, or `0G`.
 - Network indicator: `Offline` or `Stellar Testnet`.
 - Export and safety links.
 

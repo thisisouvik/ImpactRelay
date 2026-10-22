@@ -8,7 +8,7 @@ This is the target architecture for the first implementation. The repository is 
 
 - Keep all secrets, LLM calls, payment signing, and policy checks on the server.
 - Keep the browser experience fast, inspectable, and resilient to provider failures.
-- Make Grok optional by supporting local and deterministic providers.
+- Make hosted model providers optional by supporting Groq, Local, and deterministic providers.
 - Make paid tool calls explicit, bounded, idempotent, and traceable.
 - Keep the first deployment free or locally reproducible.
 - Avoid coupling the domain model to a single LLM, chain, database, or hosting provider.
@@ -40,8 +40,8 @@ This is the target architecture for the first implementation. The repository is 
 └──────────┬────────────────────┬──────────────┬──────────┘
            │                    │              │
            ▼                    ▼              ▼
-       Grok API           Open data       x402 service
-       (optional)        tools             + Stellar
+        Groq API           Open data       x402 service
+        (optional)        tools             + Stellar
 ```
 
 ## Runtime boundaries
@@ -57,7 +57,7 @@ The browser may:
 
 The browser must not:
 
-- Receive `XAI_API_KEY`.
+- Receive provider API keys.
 - Receive a Stellar secret key.
 - Decide whether a payment is permitted.
 - Verify a payment only from client-provided data.
@@ -158,7 +158,7 @@ type Case = {
   title: string;
   requestText: string;
   status: CaseStatus;
-  mode: "rules" | "local" | "grok";
+  mode: "rules" | "local" | "groq" | "0g";
   network: "offline" | "stellar:testnet";
   budget: Budget;
   createdAt: string;
@@ -244,7 +244,7 @@ Any state may transition to `PAUSED`, `BLOCKED`, or `FAILED`. Transitions are va
 
 ```ts
 interface LlmProvider {
-  readonly id: "grok" | "local" | "0g";
+  readonly id: "groq" | "local" | "0g";
   plan(input: PlannerInput): Promise<AgentPlan>;
   summarize(input: SynthesisInput): Promise<FinalReportDraft>;
 }
@@ -253,7 +253,7 @@ interface LlmProvider {
 Provider selection order:
 
 1. Explicit deployment `APP_MODE` when configured.
-2. The case-selected Grok, Local, or 0G provider.
+2. The case-selected Groq, Local, or 0G provider.
 3. Transparent rules planning when no real provider is requested.
 4. A visible failed state when the selected real provider is unavailable.
 

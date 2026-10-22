@@ -2,11 +2,12 @@
 
 ## Security posture
 
-ImpactRelay handles three sensitive capabilities:
+ImpactRelay currently handles two sensitive capabilities:
 
 1. It receives user-provided case information.
 2. It can call external tools based on model output.
-3. It can sign small Stellar Testnet payments.
+
+The Stellar/x402 payment boundary is documented as future work and is intentionally not executable in the current runtime. There is no signer, facilitator integration, payment receipt, or real payment approval flow yet.
 
 The MVP is a research/demo system. It must be honest about that boundary and default to the least powerful behavior that still demonstrates the product.
 
@@ -16,7 +17,7 @@ The current browser workflow uses an HttpOnly anonymous session cookie and store
 
 | Threat | Example | Primary control |
 | --- | --- | --- |
-| Secret exposure | Grok key or Stellar secret enters browser/logs | Server-only modules, redaction, bundle review |
+| Secret exposure | Provider key or Stellar secret enters browser/logs | Server-only modules, redaction, bundle review |
 | Prompt injection | A fetched page tells the agent to ignore policy | Treat tool output as untrusted data |
 | Excessive spending | Model requests many paid calls | Allow-list, per-call cap, run cap, approval |
 | Payment replay | Same signed payment buys multiple responses | Intent IDs, idempotency, facilitator verification |
@@ -29,7 +30,7 @@ The current browser workflow uses an HttpOnly anonymous session cookie and store
 
 ## Secret rules
 
-- `XAI_API_KEY` is server-only.
+- Provider API keys are server-only.
 - Stellar private keys are server-only and disposable in Testnet mode.
 - x402 payment signatures and raw authorization payloads are sensitive; do not log or persist them unless the integration explicitly requires short-lived storage.
 - Environment variables must be validated at the server boundary.
