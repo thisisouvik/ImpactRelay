@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 
@@ -24,7 +25,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: ReactNode;
+}>) {
   return (
     <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full">
