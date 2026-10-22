@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { GrokProvider } from "@/lib/ai/grok-provider";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { GroqProvider } from "@/lib/ai/groq-provider";
 import { LocalProvider } from "@/lib/ai/local-provider";
 import { OgProvider } from "@/lib/ai/og-provider";
 import { ProviderConfigurationError, ProviderError, ProviderOutputError } from "@/lib/ai/types";
@@ -11,7 +11,7 @@ const caseRecord: CaseRecord = {
   title: "Provider contract case",
   requestText: "Check current weather near Guwahati and use the result to prepare a reviewable plan.",
   status: "planning",
-  mode: "grok",
+  mode: "groq",
   budget: { capUsd: "0.05", spentUsd: "0", reservedUsd: "0" },
   createdAt: "2026-10-18T10:00:00.000Z",
   updatedAt: "2026-10-18T10:00:00.000Z",
@@ -41,25 +41,97 @@ function completion(content: unknown) {
 }
 
 describe("provider adapters", () => {
-  it("validates a Grok-shaped structured plan and derives safe tool input", async () => {
-    let authorization = "";
-    const fetcher: typeof fetch = async (_input, init) => {
-      authorization = new Headers(init?.headers).get("authorization") ?? "";
-      return completion({
-        objective: "Assess current weather",
-        constraints: ["Use source-backed claims."],
-        steps: [{ toolId: "weather.current", purpose: "Retrieve current weather." }],
-      });
-    };
-    const provider = new GrokProvider({ apiKey: "test-key", model: "test-model", fetcher });
+  beforeEach(() => {
+    vi.stubEnv("GROQ_API_KEY", undefined);
+    vi.stubEnv("GROQ_MODEL", undefined);
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected network request in provider tests."));
+  });
 
-    const plan = await provider.plan({ caseRecord, availableToolIds: ["location.lookup", "weather.current"] });
+  afterEach(() => vi.unstubAllEnvs());
 
-    expect(authorization).toBe("Bearer test-key");
-    expect(plan.steps).toHaveLength(1);
-    expect(plan.steps[0].toolId).toBe("weather.current");
-    expect(plan.steps[0].input).toEqual({ requestText: caseRecord.requestText });
-    expect(plan.steps[0].requiresPayment).toBe(false);
+  it("uses Groq credentials, the fixed official endpoint, and the default model for guarded planning", async () => {
+    vi.stubEnv("GROQ_API_KEY", "gsk_groq-test-key");
+    const fetcher = vi.fn<typeof fetch>(async () => completion({
+      objective: "Assess current weather",
+      constraints: ["Use source-backed claims."],
+      steps: [{
+        toolId: "weather.current",
+        purpose: "Retrieve current weather.",
+        input: { requestText: "Model-supplied input must be replaced." },
+        requiresPayment: true,
+        requiresApproval: true,
+      }],
+    }));
+    const provider = new GroqProvider({ fetcher });
+
+    const plan = await provider.plan({ caseRecord: { ...caseRecord, mode: "groq" }, availableToolIds: ["weather.current"] });
+
+    expect(provider.id).toBe("groq");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    const [url, init] = fetcher.mock.calls[0];
+    expect(url).toBe("https://api.groq.com/openai/v1/chat/completions");
+    expect(init?.method).toBe("POST");
+    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer gsk_groq-test-key");
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      model: "llama-3.3-70b-versatile",
+      temperature: 0,
+      response_format: { type: "json_object" },
+      messages: [{ role: "system" }, { role: "user" }],
+    });
+    expect(plan.steps[0]).toMatchObject({
+      toolId: "weather.current",
+      input: { requestText: caseRecord.requestText },
+      requiresPayment: false,
+      requiresApproval: false,
+      status: "ready",
+    });
+  });
+
+  it("uses GROQ_MODEL for synthesis and records Groq identity instead of a model-supplied identity", async () => {
+    vi.stubEnv("GROQ_API_KEY", "gsk_groq-report-test");
+    vi.stubEnv("GROQ_MODEL", "groq-configured-model");
+    const fetcher = vi.fn<typeof fetch>(async () => completion({
+      summary: "Weather data is available for review.",
+      known: [{ text: "The current temperature is 27°C.", evidenceIds: [evidence[0].id] }],
+      nextActions: [],
+      uncertainties: [],
+       providerId: "groq",
+    }));
+    const provider = new GroqProvider({ fetcher });
+
+    const report = await provider.summarize({ caseRecord: { ...caseRecord, mode: "groq" }, evidence });
+
+    expect(report.providerId).toBe("groq");
+    expect(report.known[0].evidenceIds).toEqual([evidence[0].id]);
+    const [url, init] = fetcher.mock.calls[0];
+    expect(url).toBe("https://api.groq.com/openai/v1/chat/completions");
+    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer gsk_groq-report-test");
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      model: "groq-configured-model",
+      response_format: { type: "json_object" },
+    });
+  });
+
+  it("applies Groq plan and report guardrails without a fallback result", async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(completion({
+        objective: "Unsupported action",
+        constraints: [],
+        steps: [{ toolId: "unknown.tool", purpose: "Do something unknown." }],
+      }))
+      .mockResolvedValueOnce(completion({
+        summary: "Unsupported claim",
+        known: [{ text: "An invented fact.", evidenceIds: ["unknown-evidence"] }],
+        nextActions: [],
+        uncertainties: [],
+      }));
+    const provider = new GroqProvider({ apiKey: "gsk_guardrail-test", fetcher });
+
+    await expect(provider.plan({ caseRecord: { ...caseRecord, mode: "groq" }, availableToolIds: ["weather.current"] }))
+      .rejects.toMatchObject({ code: "PROVIDER_INVALID_OUTPUT", message: expect.stringContaining("groq") });
+    await expect(provider.summarize({ caseRecord: { ...caseRecord, mode: "groq" }, evidence }))
+      .rejects.toMatchObject({ code: "PROVIDER_INVALID_OUTPUT", message: expect.stringContaining("unknown evidence ID") });
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
   it("uses the 0G Router contract with optional private trust routing", async () => {
@@ -105,7 +177,8 @@ describe("provider adapters", () => {
       .rejects.toBeInstanceOf(ProviderOutputError);
   });
 
-  it("validates report evidence references and records the provider identity", async () => {
+  it("validates report evidence references and records the local provider identity", async () => {
+    const mode = "local" as const;
     const fetcher: typeof fetch = async () => completion({
       summary: "Weather data is available for review.",
       known: [{ text: "The current temperature is 27°C.", evidenceIds: [evidence[0].id] }],
@@ -114,9 +187,9 @@ describe("provider adapters", () => {
     });
     const provider = new LocalProvider({ baseUrl: "http://127.0.0.1:11434/v1", model: "local-test", fetcher });
 
-    const report = await provider.summarize({ caseRecord: { ...caseRecord, mode: "local" }, evidence });
+    const report = await provider.summarize({ caseRecord: { ...caseRecord, mode }, evidence });
 
-    expect(report.providerId).toBe("local");
+    expect(report.providerId).toBe(mode);
     expect(report.known[0].evidenceIds).toEqual([evidence[0].id]);
   });
 
@@ -147,7 +220,8 @@ describe("provider adapters", () => {
   });
 
   it("requires credentials/configuration for real providers", () => {
-    expect(() => new GrokProvider({ apiKey: "", model: "test-model" })).toThrow(ProviderConfigurationError);
+    expect(() => new GroqProvider()).toThrow("GROQ_API_KEY is required for Groq mode.");
+    expect(() => new GroqProvider({ apiKey: "  " })).toThrow(ProviderConfigurationError);
     expect(() => new LocalProvider({ baseUrl: "", model: "test-model" })).toThrow(ProviderConfigurationError);
   });
 
