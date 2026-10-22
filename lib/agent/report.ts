@@ -40,7 +40,9 @@ export function buildRulesReport(caseRecord: CaseRecord, evidence: EvidenceItem[
     },
   ];
 
-  const failedTools = caseRecord.events.filter((event) => event.eventType === "tool.failed").map((event) => event.message);
+  const failedTools = caseRecord.events
+    .filter((event) => event.eventType === "tool.failed" || event.eventType === "tool.blocked")
+    .map((event) => event.message);
   if (failedTools.length > 0) {
     uncertainties.unshift({
       text: `A live tool did not complete: ${failedTools.join(" ")}`,
