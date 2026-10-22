@@ -3,20 +3,17 @@ import { chatCompletionsEndpoint, parseJsonContent, requestChatCompletion } from
 import { normalizeProviderPlan, normalizeProviderReport } from "@/lib/ai/guardrails";
 import { PLANNER_SYSTEM_PROMPT, plannerUserPrompt, SYNTHESIS_SYSTEM_PROMPT, synthesisUserPrompt } from "@/lib/ai/prompts";
 
-export class GrokProvider implements LlmProvider {
-  readonly id = "grok" as const;
+export class GroqProvider implements LlmProvider {
+  readonly id = "groq" as const;
   private readonly apiKey: string;
   private readonly model: string;
-  private readonly endpoint: string;
+  private readonly endpoint = chatCompletionsEndpoint("https://api.groq.com/openai/v1");
   private readonly fetcher?: typeof fetch;
 
-  constructor(options: { apiKey?: string; model?: string; baseUrl?: string; fetcher?: typeof fetch } = {}) {
-    this.apiKey = options.apiKey ?? process.env.XAI_API_KEY ?? "";
-    this.model = options.model ?? process.env.XAI_MODEL ?? "";
-    const baseUrl = options.baseUrl ?? process.env.XAI_BASE_URL ?? "https://api.x.ai/v1";
-    if (!this.apiKey) throw new ProviderConfigurationError("XAI_API_KEY is required for Grok mode.");
-    if (!this.model) throw new ProviderConfigurationError("XAI_MODEL is required for Grok mode.");
-    this.endpoint = chatCompletionsEndpoint(baseUrl);
+  constructor(options: { apiKey?: string; model?: string; fetcher?: typeof fetch } = {}) {
+    this.apiKey = (options.apiKey ?? process.env.GROQ_API_KEY ?? "").trim();
+    this.model = (options.model ?? process.env.GROQ_MODEL ?? "").trim() || "llama-3.3-70b-versatile";
+    if (!this.apiKey) throw new ProviderConfigurationError("GROQ_API_KEY is required for Groq mode.");
     this.fetcher = options.fetcher;
   }
 
