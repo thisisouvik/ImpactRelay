@@ -151,4 +151,32 @@ describe("free tool adapters", () => {
     expect(result.evidence?.metadata).toMatchObject({ resourceCount: 2, availabilityVerified: false });
     expect(result.evidence?.contentHash).toHaveLength(64);
   });
+
+  it("aborts each Overpass endpoint at the aligned eight-second client budget", async () => {
+    const signals: AbortSignal[] = [];
+    const fetcher: FetchLike = async (_input, init) => new Promise((_resolve, reject) => {
+      const signal = init?.signal as AbortSignal;
+      signals.push(signal);
+      signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+    });
+
+    const request = nearbyResourcesTool.execute({}, {
+      ...contextBase,
+      previous: {
+        "location.lookup": {
+          toolId: "location.lookup",
+          status: "completed",
+          message: "Location resolved.",
+          metadata: { latitude: 26.1445, longitude: 91.7362 },
+        },
+      },
+      fetcher,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 16_100));
+    const result = await request;
+    expect(result.status).toBe("failed");
+    expect(signals).toHaveLength(2);
+    expect(signals.every((signal) => signal.aborted)).toBe(true);
+  }, 20_000);
 });
