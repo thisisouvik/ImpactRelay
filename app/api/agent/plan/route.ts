@@ -7,13 +7,13 @@ import { getProductionCaseRepository } from "@/lib/db/neon-repository";
 import { getLlmProvider } from "@/lib/ai/selection";
 import { ProviderError } from "@/lib/ai/types";
 import { availableFreeToolIds } from "@/lib/tools/registry";
-import { enforceRateLimit, rateLimitResponse, requestIdentifier } from "@/lib/infra/rate-limit";
+import { enforceRateLimit, rateLimitDeniedResponse, requestIdentifier } from "@/lib/infra/rate-limit";
 import { sessionHashFromRequest } from "@/lib/security/case-session";
 
 export async function POST(request: Request) {
   try {
     const limit = await enforceRateLimit(requestIdentifier(request), "agent:plan");
-    if (!limit.success) return NextResponse.json({ error: { code: "RATE_LIMITED", message: "Planning is temporarily rate-limited. Try again shortly." } }, { status: 429, headers: rateLimitResponse(limit) });
+    if (!limit.success) return rateLimitDeniedResponse(limit, "Planning is temporarily rate-limited. Try again shortly.");
     const { caseId } = caseIdSchema.parse(await request.json());
     const repository = getProductionCaseRepository();
     const ownerTokenHash = sessionHashFromRequest(request);
