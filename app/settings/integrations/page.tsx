@@ -26,11 +26,11 @@ export default function IntegrationsPage() {
   }, []);
 
   const items = [
-    { icon: KeyRound, title: "Rules planner", detail: "Transparent planning without external credentials.", value: health?.planner ?? "checking", tone: "field" as const },
+    { icon: KeyRound, title: "Planning mode", detail: "APP_MODE overrides the provider selected for new cases.", value: health?.planner ?? "checking", tone: "field" as const },
     { icon: Database, title: "Database", detail: "SQLite locally; Neon when DATABASE_URL is configured.", value: health?.persistence ?? "checking", tone: health?.persistence === "neon" ? "signal" as const : "muted" as const },
     { icon: Gauge, title: "Redis limits", detail: "Upstash-backed limits for protected routes.", value: health?.rateLimit ?? "checking", tone: health?.rateLimit === "configured" ? "field" as const : "amber" as const },
     { icon: Orbit, title: "0G Compute", detail: "Optional OpenAI-compatible decentralized inference.", value: health?.providers?.og ?? "not configured", tone: health?.providers?.og === "configured" ? "signal" as const : "muted" as const },
-    { icon: KeyRound, title: "Grok", detail: "Optional server-side xAI structured planning and synthesis.", value: health?.providers?.grok ?? "not configured", tone: health?.providers?.grok === "configured" ? "signal" as const : "muted" as const },
+    { icon: KeyRound, title: "Groq", detail: "Server-side inference via GROQ_API_KEY; GROQ_MODEL defaults to llama-3.3-70b-versatile.", value: health?.providers?.groq ?? "not configured", tone: health?.providers?.groq === "configured" ? "signal" as const : "muted" as const },
     { icon: Orbit, title: "Local model", detail: "Optional OpenAI-compatible model running on your own server.", value: health?.providers?.local ?? "not configured", tone: health?.providers?.local === "configured" ? "signal" as const : "muted" as const },
   ];
 
