@@ -5,7 +5,7 @@ import type {
   ReportDraft,
 } from "@/lib/domain/schemas";
 
-export type ProviderId = "grok" | "local" | "0g";
+export type ProviderId = "groq" | "local" | "0g";
 
 export type PlannerInput = {
   caseRecord: CaseRecord;
