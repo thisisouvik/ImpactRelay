@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const caseModeSchema = z.enum(["rules", "local", "grok", "0g"]);
+export const caseModeSchema = z.enum(["rules", "local", "groq", "0g"]);
 
 export const caseStatusSchema = z.enum([
   "received",
@@ -99,7 +99,7 @@ export const reportDraftSchema = z.object({
   known: z.array(reportEvidenceReferenceSchema).max(10),
   nextActions: z.array(reportActionSchema).max(10),
   uncertainties: z.array(reportEvidenceReferenceSchema).max(10),
-  providerId: z.enum(["rules", "grok", "local", "0g"]),
+  providerId: z.enum(["rules", "groq", "local", "0g"]),
 });
 
 export const planRequestSchema = z.object({
