@@ -3,7 +3,7 @@ import { caseRequestSchema } from "@/lib/domain/schemas";
 import { errorResponse } from "@/lib/api/response";
 import { getProductionCaseRepository } from "@/lib/db/neon-repository";
 import { effectiveCaseMode } from "@/lib/ai/selection";
-import { enforceRateLimit, rateLimitResponse, requestIdentifier } from "@/lib/infra/rate-limit";
+import { enforceRateLimit, rateLimitDeniedResponse, requestIdentifier } from "@/lib/infra/rate-limit";
 import { deleteCachedJson, getCachedJson, setCachedJson } from "@/lib/infra/cache";
 import type { CaseRecord } from "@/lib/domain/schemas";
 import { createCaseSessionToken, hashCaseSession, readCaseSession, sessionCookie, sessionHashFromRequest } from "@/lib/security/case-session";
@@ -11,7 +11,7 @@ import { createCaseSessionToken, hashCaseSession, readCaseSession, sessionCookie
 export async function POST(request: Request) {
   try {
     const limit = await enforceRateLimit(requestIdentifier(request), "cases:create");
-    if (!limit.success) return NextResponse.json({ error: { code: "RATE_LIMITED", message: "Too many case creations. Try again shortly." } }, { status: 429, headers: rateLimitResponse(limit) });
+    if (!limit.success) return rateLimitDeniedResponse(limit, "Too many case creations. Try again shortly.");
     const input = caseRequestSchema.parse(await request.json());
     const sessionToken = readCaseSession(request) ?? createCaseSessionToken();
     const created = await getProductionCaseRepository().createCase({
