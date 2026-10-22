@@ -13,6 +13,11 @@ const overpassSchema = z.object({
   }).passthrough()),
 }).passthrough();
 
+// The Overpass query itself asks the service to stop after eight seconds. Keep
+// the client timeout aligned with that budget so a failed endpoint cannot hold
+// the complete case run for the previous 15-second retry window.
+const OVERPASS_REQUEST_TIMEOUT_MS = 8_000;
+
 function distanceKm(fromLat: number, fromLon: number, toLat: number, toLon: number) {
   const earthRadiusKm = 6371;
   const latitudeDelta = (toLat - fromLat) * Math.PI / 180;
@@ -55,7 +60,7 @@ export const nearbyResourcesTool: FreeTool = {
               accept: "application/json",
               "user-agent": process.env.IMPACTRELAY_USER_AGENT ?? "ImpactRelay/0.4 local development",
             },
-          }, 15_000);
+          }, OVERPASS_REQUEST_TIMEOUT_MS);
           text = response.text;
           sourceUrl = url.toString();
           break;

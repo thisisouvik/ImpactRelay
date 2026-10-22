@@ -17,8 +17,8 @@ export async function fetchText(
   timeoutMs = DEFAULT_TIMEOUT_MS,
 ) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const operation = (async () => {
     const response = await fetcher(url, { ...init, signal: controller.signal });
     if (!response.ok) {
       throw new Error(`External source returned HTTP ${response.status}.`);
@@ -32,8 +32,17 @@ export async function fetchText(
       throw new Error("External source exceeded the response-size limit.");
     }
     return { response, text };
+  })();
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => {
+      controller.abort();
+      reject(new Error("External source request timed out."));
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([operation, deadline]);
   } finally {
-    clearTimeout(timeout);
+    if (timeout) clearTimeout(timeout);
   }
 }
 
